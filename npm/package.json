@@ -1,6 +1,6 @@
 {
   "name": "@dvcrn/antigravity-oauth-proxy",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Release package for antigravity-oauth-proxy",
   "repository": {
     "type": "git",
