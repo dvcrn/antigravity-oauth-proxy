@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
-	"github.com/dvcrn/antigravity-proxy/internal/openai"
-	"github.com/dvcrn/antigravity-proxy/internal/transform"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/transform"
 )
 
 // openAIChatCompletionsHandler handles OpenAI-compatible chat completion requests.

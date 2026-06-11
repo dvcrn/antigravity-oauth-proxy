@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 // loggingMiddleware logs all incoming requests

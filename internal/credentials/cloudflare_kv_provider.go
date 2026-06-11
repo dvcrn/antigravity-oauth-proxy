@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 
 	"github.com/syumai/workers/cloudflare/fetch"
 	"github.com/syumai/workers/cloudflare/kv"

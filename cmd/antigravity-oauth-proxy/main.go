@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
-	"github.com/dvcrn/antigravity-proxy/internal/credentials"
-	"github.com/dvcrn/antigravity-proxy/internal/env"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
-	"github.com/dvcrn/antigravity-proxy/internal/project"
-	"github.com/dvcrn/antigravity-proxy/internal/server"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/project"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/server"
 )
 
 func main() {

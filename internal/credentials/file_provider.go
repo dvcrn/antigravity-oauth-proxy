@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/env"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 // FileProvider implements CredentialsProvider using file-based storage
@@ -45,11 +45,11 @@ func (f *FileProvider) determineFilePath() error {
 		return nil
 	}
 
-	// 2. Use default path: ~/.config/antigravity-proxy/oauth_creds.json
+	// 2. Use default path: ~/.config/antigravity-oauth-proxy/oauth_creds.json
 	// We intentionally prefer ~/.config for parity with other antigravity tools.
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		f.filePath = filepath.Join(homeDir, ".config", "antigravity-proxy", "oauth_creds.json")
+		f.filePath = resolveCredsPath(filepath.Join(homeDir, ".config"))
 		return nil
 	}
 
@@ -58,8 +58,47 @@ func (f *FileProvider) determineFilePath() error {
 	if err != nil {
 		return fmt.Errorf("failed to get home or config directory: %w", err)
 	}
-	f.filePath = filepath.Join(configDir, "antigravity-proxy", "oauth_creds.json")
+	f.filePath = resolveCredsPath(configDir)
 	return nil
+}
+
+// resolveCredsPath returns the credentials path under the given config base
+// directory. If the new "antigravity-oauth-proxy" location does not yet exist
+// but the pre-rename "antigravity-proxy" location does, the legacy credentials
+// are migrated to the new location so existing installs keep working on upgrade.
+func resolveCredsPath(configBase string) string {
+	newPath := filepath.Join(configBase, "antigravity-oauth-proxy", "oauth_creds.json")
+	oldPath := filepath.Join(configBase, "antigravity-proxy", "oauth_creds.json")
+	migrateLegacyCreds(oldPath, newPath)
+	return newPath
+}
+
+// migrateLegacyCreds copies credentials from the legacy path to the new path
+// when the new path is absent but the legacy one exists. It is best-effort: any
+// failure is logged and the new path is still returned by the caller, leaving
+// GetCredentials to surface a clear error if no credentials can be loaded.
+func migrateLegacyCreds(oldPath, newPath string) {
+	// Skip if the new path already exists (or stat failed for another reason).
+	if _, err := os.Stat(newPath); err == nil || !os.IsNotExist(err) {
+		return
+	}
+
+	data, err := os.ReadFile(oldPath)
+	if err != nil {
+		// No legacy credentials to migrate (or unreadable) — nothing to do.
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
+		logger.Get().Warn().Err(err).Msg("failed to create directory for migrated credentials")
+		return
+	}
+	if err := os.WriteFile(newPath, data, 0o600); err != nil {
+		logger.Get().Warn().Err(err).Msg("failed to migrate credentials to new path")
+		return
+	}
+
+	logger.Get().Info().Msgf("Migrated OAuth credentials from %s to %s", oldPath, newPath)
 }
 
 // GetCredentials retrieves credentials from file or environment

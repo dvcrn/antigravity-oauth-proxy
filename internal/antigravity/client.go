@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/credentials"
-	serverhttp "github.com/dvcrn/antigravity-proxy/internal/http"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
+	serverhttp "github.com/dvcrn/antigravity-oauth-proxy/internal/http"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 type UpstreamError struct {

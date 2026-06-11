@@ -3,7 +3,7 @@ package server
 import (
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 )
 
 const (

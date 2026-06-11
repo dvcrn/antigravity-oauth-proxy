@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
-	"github.com/dvcrn/antigravity-proxy/internal/credentials"
-	"github.com/dvcrn/antigravity-proxy/internal/env"
-	serverhttp "github.com/dvcrn/antigravity-proxy/internal/http"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
+	serverhttp "github.com/dvcrn/antigravity-oauth-proxy/internal/http"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 // Server represents the proxy server with its dependencies

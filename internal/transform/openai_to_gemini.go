@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
-	"github.com/dvcrn/antigravity-proxy/internal/openai"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 	"github.com/google/uuid"
 )
 

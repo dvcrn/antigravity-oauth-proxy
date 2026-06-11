@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 func (s *Server) streamGenerateContentHandler(w http.ResponseWriter, r *http.Request) {

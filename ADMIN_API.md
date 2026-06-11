@@ -1,6 +1,6 @@
 # Admin API Documentation
 
-This document describes how to set up and use the Admin API for managing OAuth credentials in the Cloudflare Workers deployment of gemini-proxy.
+This document describes how to set up and use the Admin API for managing OAuth credentials in the Cloudflare Workers deployment of antigravity-oauth-proxy.
 
 ## Overview
 
@@ -58,7 +58,7 @@ All admin endpoints require authentication via one of these headers:
 
 Updates the OAuth credentials stored in Cloudflare KV.
 
-**Request Format**: Accepts the exact same JSON format as `~/.config/antigravity-proxy/oauth_creds.json`:
+**Request Format**: Accepts the exact same JSON format as `~/.config/antigravity-oauth-proxy/oauth_creds.json`:
 
 ```json
 {
@@ -77,7 +77,7 @@ Updates the OAuth credentials stored in Cloudflare KV.
 curl -X POST https://your-worker.workers.dev/admin/credentials \
   -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d @~/.config/antigravity-proxy/oauth_creds.json
+  -d @~/.config/antigravity-oauth-proxy/oauth_creds.json
 ```
 
 **Response**:
@@ -136,7 +136,7 @@ ADMIN_KEY="YOUR_ADMIN_API_KEY"
 curl -X POST $WORKER_URL/admin/credentials \
   -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
-  -d @~/.config/antigravity-proxy/oauth_creds.json
+  -d @~/.config/antigravity-oauth-proxy/oauth_creds.json
 ```
 
 ### Step 3: Verify Credentials

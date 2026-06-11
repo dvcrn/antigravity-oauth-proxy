@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"github.com/dvcrn/antigravity-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 )
 
 func TestResolveModelForThinking(t *testing.T) {

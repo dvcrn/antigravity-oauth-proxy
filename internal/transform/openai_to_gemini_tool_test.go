@@ -3,7 +3,7 @@ package transform
 import (
 	"testing"
 
-	"github.com/dvcrn/antigravity-proxy/internal/openai"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

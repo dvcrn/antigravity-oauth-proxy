@@ -1,11 +1,11 @@
 version: 2
 
-project_name: antigravity-proxy
+project_name: antigravity-oauth-proxy
 
 builds:
-  - id: antigravity-proxy
-    main: ./cmd/antigravity-proxy
-    binary: antigravity-proxy
+  - id: antigravity-oauth-proxy
+    main: ./cmd/antigravity-oauth-proxy
+    binary: antigravity-oauth-proxy
     env:
       - CGO_ENABLED=0
     goos:
@@ -41,7 +41,7 @@ checksum:
 release:
   github:
     owner: dvcrn
-    name: antigravity-proxy
+    name: antigravity-oauth-proxy
   replace_existing_artifacts: true
 
 changelog:

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/env"
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 // adminMiddleware checks for valid admin API key from either

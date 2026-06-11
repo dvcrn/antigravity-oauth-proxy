@@ -7,8 +7,8 @@ const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
 const OWNER = "dvcrn";
-const REPO = "antigravity-proxy";
-const BIN = "antigravity-proxy";
+const REPO = "antigravity-oauth-proxy";
+const BIN = "antigravity-oauth-proxy";
 const VERSION_ENV = "ANTIGRAVITY_PROXY_VERSION";
 const BASE_URL_ENV = "ANTIGRAVITY_PROXY_BASE_URL";
 const ARCH_ENV = "ANTIGRAVITY_PROXY_ARCH";
@@ -74,7 +74,7 @@ async function installBinary() {
   const platform = platformRaw === "win32" ? "windows" : platformRaw;
   if (!["darwin", "linux", "windows"].includes(platform)) {
     throw new Error(
-      "antigravity-proxy: npm install supports macOS (darwin), Linux, and Windows only",
+      "antigravity-oauth-proxy: npm install supports macOS (darwin), Linux, and Windows only",
     );
   }
 

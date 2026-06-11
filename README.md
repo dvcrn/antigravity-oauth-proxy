@@ -33,24 +33,24 @@ To run locally, or to deploy to Cloudflare Workers
 Option 1 (recommended): prebuilt binary via npm (macOS, Linux, Windows)
 
 ```bash
-npm install -g @dvcrn/antigravity-proxy
+npm install -g @dvcrn/antigravity-oauth-proxy
 ```
 
 Option 2: install from source with Go
 
 ```
-go install github.com/dvcrn/antigravity-proxy/cmd/antigravity-proxy@latest
+go install github.com/dvcrn/antigravity-oauth-proxy/cmd/antigravity-oauth-proxy@latest
 ```
 
 Then to start:
 
 ```
-ADMIN_API_KEY=123abc antigravity-proxy
+ADMIN_API_KEY=123abc antigravity-oauth-proxy
 ```
 
 ## Auth
 
-Run `go run cmd/auth/main.go` and follow instructions. This will create the oauth creds file at `~/.config/antigravity-proxy/oauth_creds.json`
+Run `go run cmd/auth/main.go` and follow instructions. This will create the oauth creds file at `~/.config/antigravity-oauth-proxy/oauth_creds.json`
 
 You can also copy this file from your antigravity installation, but a new OAuth chain is recommended
 
@@ -59,7 +59,7 @@ You can also copy this file from your antigravity installation, but a new OAuth 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd antigravity-proxy
+cd antigravity-oauth-proxy
 
 # Build the proxy
 mise run build
@@ -131,14 +131,14 @@ For production deployment on Cloudflare Workers:
 1. **Create KV namespace** (required for credential storage):
 
    ```bash
-   wrangler kv namespace create "antigravity-proxy-kv"
+   wrangler kv namespace create "antigravity-oauth-proxy-kv"
    ```
 
    This will output a namespace ID. Add it to your `wrangler.toml`:
 
    ```toml
    kv_namespaces = [
-     { binding = "antigravity_proxy_kv", id = "YOUR_NAMESPACE_ID_HERE" }
+     { binding = "gemini_code_assist_proxy_kv", id = "YOUR_NAMESPACE_ID_HERE" }
    ]
    ```
 
@@ -183,13 +183,13 @@ All admin endpoints require authentication via one of these methods:
 
 #### POST /admin/credentials
 
-Updates OAuth credentials stored in Cloudflare KV. Accepts the exact same JSON format as `~/.config/antigravity-proxy/oauth_creds.json`:
+Updates OAuth credentials stored in Cloudflare KV. Accepts the exact same JSON format as `~/.config/antigravity-oauth-proxy/oauth_creds.json`:
 
 ```bash
 curl -X POST https://your-worker.workers.dev/admin/credentials \
   -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d @~/.config/antigravity-proxy/oauth_creds.json
+  -d @~/.config/antigravity-oauth-proxy/oauth_creds.json
 ```
 
 **Response**:
@@ -248,7 +248,7 @@ curl https://your-worker.workers.dev/admin/credentials/status \
    curl -X POST $WORKER_URL/admin/credentials \
      -H "Authorization: Bearer $ADMIN_KEY" \
      -H "Content-Type: application/json" \
-     -d @~/.config/antigravity-proxy/oauth_creds.json
+     -d @~/.config/antigravity-oauth-proxy/oauth_creds.json
    ```
 
 3. **Verify credentials**:
@@ -289,7 +289,7 @@ export DEBUG_SSE=true
 
 If you receive 401 errors:
 
-1. Check that your OAuth credentials file at `~/.config/antigravity-proxy/oauth_creds.json` contains valid tokens
+1. Check that your OAuth credentials file at `~/.config/antigravity-oauth-proxy/oauth_creds.json` contains valid tokens
 2. Refresh your OAuth tokens if they've expired (run `go run cmd/auth/main.go`)
 
 ### Debugging

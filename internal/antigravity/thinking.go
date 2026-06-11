@@ -3,7 +3,7 @@ package antigravity
 import (
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 func applyGeminiThinkingPreset(req *GenerateContentRequest) {

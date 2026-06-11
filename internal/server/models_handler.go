@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dvcrn/antigravity-proxy/internal/logger"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 type openAIModel struct {

@@ -1,4 +1,4 @@
-module github.com/dvcrn/antigravity-proxy
+module github.com/dvcrn/antigravity-oauth-proxy
 
 go 1.25.7
 

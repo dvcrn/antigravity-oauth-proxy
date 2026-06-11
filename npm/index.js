@@ -7,7 +7,7 @@ const { installBinary } = require("./postinstall");
 const { startUpdateCheck } = require("./update_check");
 
 const exe =
-  process.platform === "win32" ? "antigravity-proxy.exe" : "antigravity-proxy";
+  process.platform === "win32" ? "antigravity-oauth-proxy.exe" : "antigravity-oauth-proxy";
 const binPath = path.join(__dirname, exe);
 
 const PKG = (() => {
@@ -60,6 +60,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`antigravity-proxy: failed to install binary: ${err.message}`);
+  console.error(`antigravity-oauth-proxy: failed to install binary: ${err.message}`);
   process.exit(1);
 });

@@ -9,12 +9,9 @@ build/
 .gocache
 dist
 
-/antigravity-proxy
-/antigravity-proxy.exe
-npm/antigravity-proxy
-npm/antigravity-proxy.exe
+/antigravity-oauth-proxy
+/antigravity-oauth-proxy.exe
+npm/antigravity-oauth-proxy
+npm/antigravity-oauth-proxy.exe
 
-com.antigravity-proxy.plist
-com.gemini-proxy.plist
-/gemini-proxy
-/gemini-code-assist-proxy
+sh.d.antigravity-oauth-proxy.plist
