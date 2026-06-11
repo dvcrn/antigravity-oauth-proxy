@@ -1,5 +1,5 @@
 {
-  "name": "@dvcrn/antigravity-oauth-proxy",
+  "name": "antigravity-oauth-proxy",
   "version": "1.1.1",
   "description": "Release package for antigravity-oauth-proxy",
   "repository": {
