@@ -439,6 +439,7 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 
 	// Extract assistant text content from first candidate
 	var contentText string
+	var reasoningText string
 	if resp != nil && resp.Response != nil {
 		if cands, ok := resp.Response["candidates"].([]interface{}); ok && len(cands) > 0 {
 			if first, ok := cands[0].(map[string]interface{}); ok {
@@ -454,20 +455,37 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 						parts = ps
 					}
 				}
-				var b strings.Builder
+				var bText strings.Builder
+				var bReasoning strings.Builder
 				for _, p := range parts {
 					if pm, ok := p.(map[string]interface{}); ok {
 						if txt, ok := pm["text"].(string); ok && txt != "" {
-							if b.Len() > 0 {
-								b.WriteString("\n")
+							if isThought, ok := pm["thought"].(bool); ok && isThought {
+								if bReasoning.Len() > 0 {
+									bReasoning.WriteString("\n")
+								}
+								bReasoning.WriteString(txt)
+							} else {
+								if bText.Len() > 0 {
+									bText.WriteString("\n")
+								}
+								bText.WriteString(txt)
 							}
-							b.WriteString(txt)
 						}
 					}
 				}
-				contentText = b.String()
+				contentText = bText.String()
+				reasoningText = bReasoning.String()
 			}
 		}
+	}
+
+	message := map[string]interface{}{
+		"role":    "assistant",
+		"content": contentText,
+	}
+	if reasoningText != "" {
+		message["reasoning_content"] = reasoningText
 	}
 
 	// Build OpenAI-style response
@@ -479,11 +497,8 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 		"model":   req.Model,
 		"choices": []map[string]interface{}{
 			{
-				"index": 0,
-				"message": map[string]interface{}{
-					"role":    "assistant",
-					"content": contentText,
-				},
+				"index":         0,
+				"message":       message,
 				"finish_reason": "stop",
 			},
 		},

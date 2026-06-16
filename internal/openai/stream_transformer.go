@@ -150,12 +150,14 @@ func CreateOpenAIStreamTransformer(model string) func(<-chan StreamChunk) <-chan
 				case "real_thinking":
 					if text, ok := chunk.Data.(string); ok {
 						delta.Reasoning = &text
+						delta.ReasoningContent = &text
 						shouldSend = true
 					}
 
 				case "reasoning":
 					if reasoningData, ok := toReasoningData(chunk.Data); ok {
 						delta.Reasoning = &reasoningData.Reasoning
+						delta.ReasoningContent = &reasoningData.Reasoning
 						shouldSend = true
 					}
 
