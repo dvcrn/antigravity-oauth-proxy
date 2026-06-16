@@ -2,6 +2,20 @@ package antigravity
 
 import "strings"
 
+func extractTypeString(typeVal interface{}) string {
+	if t, ok := typeVal.(string); ok {
+		return t
+	}
+	if tArr, ok := typeVal.([]interface{}); ok {
+		for _, tVal := range tArr {
+			if tStr, ok := tVal.(string); ok && tStr != "null" {
+				return tStr
+			}
+		}
+	}
+	return ""
+}
+
 // ConvertSchema recursively converts a generic map representing a JSON schema
 // into the strongly-typed GeminiParameterSchema struct, only mapping supported fields.
 func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
@@ -18,9 +32,11 @@ func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
 	}
 
 	if subSchemas != nil {
+		var fallbackSchema map[string]interface{}
 		for _, subSchema := range subSchemas {
 			if subSchemaMap, ok := subSchema.(map[string]interface{}); ok {
-				if subSchemaMap["type"] == "array" {
+				t := extractTypeString(subSchemaMap["type"])
+				if t == "array" {
 					// Found the preferred array schema, convert it.
 					// We also merge the description from the parent level.
 					if parentDesc, ok := input["description"].(string); ok {
@@ -28,14 +44,24 @@ func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
 					}
 					return ConvertSchema(subSchemaMap)
 				}
+				if t != "" && t != "null" && fallbackSchema == nil {
+					fallbackSchema = subSchemaMap
+				}
 			}
+		}
+		if fallbackSchema != nil {
+			if parentDesc, ok := input["description"].(string); ok {
+				fallbackSchema["description"] = parentDesc
+			}
+			return ConvertSchema(fallbackSchema)
 		}
 	}
 
 	output := &GeminiParameterSchema{}
-	if t, ok := input["type"].(string); ok {
+	if t := extractTypeString(input["type"]); t != "" {
 		output.Type = strings.ToUpper(t)
 	}
+
 	if d, ok := input["description"].(string); ok {
 		output.Description = d
 	}
@@ -63,10 +89,16 @@ func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
 				output.Properties[k] = ConvertSchema(vMap)
 			}
 		}
+		if output.Type == "" {
+			output.Type = "OBJECT"
+		}
 	}
 
 	if i, ok := input["items"].(map[string]interface{}); ok {
 		output.Items = ConvertSchema(i)
+		if output.Type == "" {
+			output.Type = "ARRAY"
+		}
 	}
 
 	return output

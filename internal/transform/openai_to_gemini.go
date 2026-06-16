@@ -123,9 +123,13 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 		switch content := msg.Content.(type) {
 		case string:
 			if isTool {
+				cleanID := msg.ToolCallID
+				if idx := strings.Index(cleanID, "|"); idx != -1 {
+					cleanID = cleanID[:idx]
+				}
 				resolvedName := msg.Name
-				if resolvedName == "" && msg.ToolCallID != "" {
-					if n, ok := toolCallNameByID[msg.ToolCallID]; ok {
+				if resolvedName == "" && cleanID != "" {
+					if n, ok := toolCallNameByID[cleanID]; ok {
 						resolvedName = n
 					}
 				}
@@ -145,7 +149,7 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 					Str("response_preview", preview).
 					Msg("Forwarding tool response to Gemini")
 
-				resolvedID := strings.TrimSpace(msg.ToolCallID)
+				resolvedID := strings.TrimSpace(cleanID)
 				if resolvedID == "" && resolvedName != "" {
 					if id, ok := toolCallIDByName[resolvedName]; ok {
 						resolvedID = id
@@ -178,9 +182,13 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 						}
 					}
 				}
+				cleanID := msg.ToolCallID
+				if idx := strings.Index(cleanID, "|"); idx != -1 {
+					cleanID = cleanID[:idx]
+				}
 				resolvedName := msg.Name
-				if resolvedName == "" && msg.ToolCallID != "" {
-					if n, ok := toolCallNameByID[msg.ToolCallID]; ok {
+				if resolvedName == "" && cleanID != "" {
+					if n, ok := toolCallNameByID[cleanID]; ok {
 						resolvedName = n
 					}
 				}
@@ -201,7 +209,7 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 					Str("response_preview", preview).
 					Msg("Forwarding tool response to Gemini")
 
-				resolvedID := strings.TrimSpace(msg.ToolCallID)
+				resolvedID := strings.TrimSpace(cleanID)
 				if resolvedID == "" && resolvedName != "" {
 					if id, ok := toolCallIDByName[resolvedName]; ok {
 						resolvedID = id
@@ -241,11 +249,22 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 				if strings.TrimSpace(id) == "" {
 					id = "toolu_" + uuid.NewString()
 				}
+				var thoughtSignature string
+				if idx := strings.Index(id, "|"); idx != -1 {
+					thoughtSignature = id[idx+1:]
+					id = id[:idx]
+				}
+
+				if thoughtSignature != "" {
+					logger.Get().Info().Str("signature", thoughtSignature).Msg("Restored thought_signature from client tool call ID")
+				}
+
 				if tc.Function.Name != "" {
 					toolCallNameByID[id] = tc.Function.Name
 					toolCallIDByName[tc.Function.Name] = id
 				}
 				parts = append(parts, antigravity.ContentPart{
+					ThoughtSignature: thoughtSignature,
 					FunctionCall: &antigravity.FunctionCall{
 						ID:   id,
 						Name: tc.Function.Name,

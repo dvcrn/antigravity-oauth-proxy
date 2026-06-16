@@ -23,8 +23,9 @@ type ReasoningData struct {
 
 // GeminiFunctionCall represents a function call from Gemini
 type GeminiFunctionCall struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"args"`
+	Name             string                 `json:"name"`
+	Args             map[string]interface{} `json:"args"`
+	ThoughtSignature string                 `json:"thoughtSignature,omitempty"`
 }
 
 // UsageData contains token usage information
@@ -161,6 +162,10 @@ func CreateOpenAIStreamTransformer(model string) func(<-chan StreamChunk) <-chan
 				case "tool_code":
 					if funcCall, ok := toGeminiFunctionCall(chunk.Data); ok {
 						callID := fmt.Sprintf("call_%s", uuid.New().String())
+						if funcCall.ThoughtSignature != "" {
+							logger.Get().Info().Str("signature", funcCall.ThoughtSignature).Msg("Extracted thought_signature from Gemini, appending to ID")
+							callID = callID + "|" + funcCall.ThoughtSignature
+						}
 						toolCallID = &callID
 
 						argsJSON, _ := json.Marshal(funcCall.Args)
@@ -316,6 +321,9 @@ func toGeminiFunctionCall(data interface{}) (GeminiFunctionCall, bool) {
 		}
 		if args, ok := m["args"].(map[string]interface{}); ok {
 			fc.Args = args
+		}
+		if ts, ok := m["thoughtSignature"].(string); ok {
+			fc.ThoughtSignature = ts
 		}
 		return fc, fc.Name != "" && fc.Args != nil
 	}

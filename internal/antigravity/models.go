@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type FetchAvailableModelsResponse struct {
@@ -18,6 +19,13 @@ type AvailableModel struct {
 }
 
 func (c *Client) FetchAvailableModels(ctx context.Context) (*FetchAvailableModelsResponse, error) {
+	c.mu.RLock()
+	if c.modelsCache != nil && time.Since(c.modelsCacheTime) < time.Hour {
+		defer c.mu.RUnlock()
+		return c.modelsCache, nil
+	}
+	c.mu.RUnlock()
+
 	bodyBytes, err := json.Marshal(map[string]interface{}{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
@@ -48,6 +56,11 @@ func (c *Client) FetchAvailableModels(ctx context.Context) (*FetchAvailableModel
 		if err := json.Unmarshal(respBody, &result); err != nil {
 			return nil, fmt.Errorf("could not unmarshal response body: %w", err)
 		}
+
+		c.mu.Lock()
+		c.modelsCache = &result
+		c.modelsCacheTime = time.Now()
+		c.mu.Unlock()
 
 		return &result, nil
 	}

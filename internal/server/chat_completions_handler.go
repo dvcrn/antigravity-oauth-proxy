@@ -98,6 +98,20 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 		Int("tool_messages", toolMsgCount).
 		Msg("Tool result message count")
 
+	// Check if model exists, if not fallback to gemini-3.5-flash
+	data, err := s.antigravityClient.FetchAvailableModels(r.Context())
+	if err == nil {
+		if _, exists := data.Models[req.Model]; !exists {
+			logger.Get().Warn().
+				Str("requested_model", req.Model).
+				Str("fallback_model", "gemini-3.5-flash").
+				Msg("Requested model is unknown. Normalizing to fallback model.")
+			req.Model = "gemini-3.5-flash"
+		}
+	} else {
+		logger.Get().Warn().Err(err).Msg("Failed to fetch available models to validate requested model")
+	}
+
 	// Delegate to stream or non-stream handler
 	if req.Stream {
 		s.chatCompletionRequestStream(w, r, req, startTime)
@@ -121,6 +135,19 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 	logGeminiThinkingConfig("incoming OpenAI stream", requestedModel, resolvedModel, gemReq.Request)
 	gemReq.Model = resolvedModel
 
+	// Start upstream streaming from Gemini
+	upstream := make(chan string, 32)
+	logger.Get().Info().
+		Str("model", gemReq.Model).
+		Msg("Starting upstream StreamGenerateContent")
+
+	if err := s.antigravityClient.StreamGenerateContent(r.Context(), gemReq, upstream); err != nil {
+		logger.Get().Error().Err(err).Msg("StreamGenerateContent call failed")
+		http.Error(w, "Upstream streaming error", http.StatusInternalServerError)
+		return
+	}
+	logger.Get().Info().Msg("Upstream StreamGenerateContent started")
+
 	// Prepare SSE response
 	w.Header().Del("Content-Length")
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
@@ -137,12 +164,6 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 	} else {
 		logger.Get().Info().Msg("SSE flusher not available; relying on implicit streaming")
 	}
-
-	// Start upstream streaming from Gemini
-	upstream := make(chan string, 32)
-	logger.Get().Info().
-		Str("model", gemReq.Model).
-		Msg("Starting upstream StreamGenerateContent")
 
 	// Pinger to keep connection alive
 	pingerCtx, cancelPinger := context.WithCancel(r.Context())
@@ -167,13 +188,6 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 			}
 		}
 	}()
-
-	if err := s.antigravityClient.StreamGenerateContent(r.Context(), gemReq, upstream); err != nil {
-		logger.Get().Error().Err(err).Msg("StreamGenerateContent call failed")
-		http.Error(w, "Upstream streaming error", http.StatusInternalServerError)
-		return
-	}
-	logger.Get().Info().Msg("Upstream StreamGenerateContent started")
 
 	// Adapter: CloudCode SSE -> StreamChunk (model text, tool calls, usage, etc.)
 	chunkIn := make(chan openai.StreamChunk, 32)
@@ -349,12 +363,20 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 								Int("arg_keys", len(args)).
 								Msg("Emitting tool call from model")
 
+							var thoughtSignature string
+							if ts, ok := part["thoughtSignature"].(string); ok {
+								thoughtSignature = ts
+							} else if ts, ok := part["thought_signature"].(string); ok {
+								thoughtSignature = ts
+							}
+
 							// Emit tool call to OpenAI transformer
 							chunkIn <- openai.StreamChunk{
 								Type: "tool_code",
 								Data: map[string]interface{}{
-									"name": name,
-									"args": args,
+									"name":             name,
+									"args":             args,
+									"thoughtSignature": thoughtSignature,
 								},
 							}
 						}

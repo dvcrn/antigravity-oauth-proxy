@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
 	serverhttp "github.com/dvcrn/antigravity-oauth-proxy/internal/http"
@@ -43,6 +45,10 @@ func (e *UpstreamError) Error() string {
 type Client struct {
 	httpClient serverhttp.HTTPClient
 	provider   credentials.CredentialsProvider
+
+	mu              sync.RWMutex
+	modelsCache     *FetchAvailableModelsResponse
+	modelsCacheTime time.Time
 }
 
 // NewClient creates a new Antigravity API client.
