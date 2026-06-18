@@ -12,6 +12,8 @@ import (
 type openAIModel struct {
 	ID          string `json:"id"`
 	Object      string `json:"object"`
+	Created     int64  `json:"created"`
+	OwnedBy     string `json:"owned_by"`
 	Description string `json:"description,omitempty"`
 }
 
@@ -50,9 +52,15 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 		if description == "" {
 			description = modelID
 		}
+		ownedBy := "google"
+		if modelFamily(modelID) == "claude" {
+			ownedBy = "anthropic"
+		}
 		models = append(models, openAIModel{
 			ID:          modelID,
 			Object:      "model",
+			Created:     0,
+			OwnedBy:     ownedBy,
 			Description: description,
 		})
 	}
