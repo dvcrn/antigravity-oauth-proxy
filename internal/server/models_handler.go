@@ -5,16 +5,17 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
 type openAIModel struct {
-	ID          string `json:"id"`
-	Object      string `json:"object"`
-	Created     int64  `json:"created"`
-	OwnedBy     string `json:"owned_by"`
-	Description string `json:"description,omitempty"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+	Name    string `json:"name,omitempty"`
 }
 
 type openAIModelsListResponse struct {
@@ -48,20 +49,20 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 		if !isSupportedModel(modelID) {
 			continue
 		}
-		description := modelData.DisplayName
-		if description == "" {
-			description = modelID
-		}
 		ownedBy := "google"
 		if modelFamily(modelID) == "claude" {
 			ownedBy = "anthropic"
 		}
+		name := modelData.DisplayName
+		if name == "" {
+			name = modelID
+		}
 		models = append(models, openAIModel{
-			ID:          modelID,
-			Object:      "model",
-			Created:     0,
-			OwnedBy:     ownedBy,
-			Description: description,
+			ID:      modelID,
+			Object:  "model",
+			Created: time.Now().Unix(),
+			OwnedBy: ownedBy,
+			Name:    name,
 		})
 	}
 
