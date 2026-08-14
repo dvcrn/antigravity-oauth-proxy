@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,6 +23,14 @@ type UpstreamError struct {
 	Body        []byte
 	ContentType string
 	Endpoint    string
+}
+
+func is404Error(err error) bool {
+	var upstreamErr *UpstreamError
+	if errors.As(err, &upstreamErr) {
+		return upstreamErr.StatusCode == http.StatusNotFound
+	}
+	return false
 }
 
 func (e *UpstreamError) Error() string {
@@ -168,6 +177,17 @@ func (c *Client) LoadCodeAssist() (*LoadCodeAssistResponse, error) {
 
 // GenerateContent performs a request to the Cloud Code API to generate content.
 func (c *Client) GenerateContent(req *GenerateContentRequest) (*GenerateContentResponse, error) {
+	resp, err := c.generateContentInternal(req)
+	if err != nil && is404Error(err) && strings.Contains(strings.ToLower(req.Model), "3.7-flash") && req.Model != "gemini-3.7-flash-tiered" {
+		logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with gemini-3.7-flash-tiered")
+		tieredReq := *req
+		tieredReq.Model = "gemini-3.7-flash-tiered"
+		return c.generateContentInternal(&tieredReq)
+	}
+	return resp, err
+}
+
+func (c *Client) generateContentInternal(req *GenerateContentRequest) (*GenerateContentResponse, error) {
 	prepareAntigravityRequest(req)
 
 	bodyBytes, err := json.Marshal(req)
@@ -225,6 +245,17 @@ func (c *Client) GenerateContent(req *GenerateContentRequest) (*GenerateContentR
 // It does not transform or interpret SSE content; lines are forwarded as-is.
 // The caller owns the lifecycle of the 'out' channel; this function will not close it.
 func (c *Client) StreamGenerateContent(ctx context.Context, req *GenerateContentRequest, out chan<- string) error {
+	err := c.streamGenerateContentInternal(ctx, req, out)
+	if err != nil && is404Error(err) && strings.Contains(strings.ToLower(req.Model), "3.7-flash") && req.Model != "gemini-3.7-flash-tiered" {
+		logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with gemini-3.7-flash-tiered")
+		tieredReq := *req
+		tieredReq.Model = "gemini-3.7-flash-tiered"
+		return c.streamGenerateContentInternal(ctx, &tieredReq, out)
+	}
+	return err
+}
+
+func (c *Client) streamGenerateContentInternal(ctx context.Context, req *GenerateContentRequest, out chan<- string) error {
 	prepareAntigravityRequest(req)
 
 	bodyBytes, err := json.Marshal(req)
