@@ -86,6 +86,7 @@ func (s *Server) handleGenerateContent(w http.ResponseWriter, r *http.Request, m
 		return
 	}
 	resolvedModel := resolveModelForThinking(model, requestBody)
+	applyModelThinkingDefaults(model, &requestBody)
 	logGeminiThinkingConfig("incoming generateContent", model, resolvedModel, requestBody)
 
 	logger.Get().Debug().
@@ -166,6 +167,7 @@ func (s *Server) handleStreamGenerateContent(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	resolvedModel := resolveModelForThinking(model, requestBody)
+	applyModelThinkingDefaults(model, &requestBody)
 	logGeminiThinkingConfig("incoming streamGenerateContent", model, resolvedModel, requestBody)
 
 	// Build CloudCode request wrapper

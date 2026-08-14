@@ -106,7 +106,7 @@ func writeAPIError(w http.ResponseWriter, status int, message string) {
 
 func isSupportedModel(modelID string) bool {
 	family := modelFamily(modelID)
-	return family == "claude" || family == "gemini"
+	return family == "claude" || family == "gemini" || family == "gpt" || family == "openai"
 }
 
 func modelFamily(modelID string) string {
@@ -116,6 +116,9 @@ func modelFamily(modelID string) string {
 	}
 	if strings.Contains(lower, "gemini") {
 		return "gemini"
+	}
+	if strings.Contains(lower, "gpt") || strings.Contains(lower, "openai") {
+		return "gpt"
 	}
 	return "unknown"
 }

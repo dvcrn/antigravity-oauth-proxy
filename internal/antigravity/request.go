@@ -110,7 +110,11 @@ func modelEncodesThinkingLevel(model string) bool {
 		"gemini-3.5-flash-extra-low",
 		"gemini-3.5-flash-low",
 		"gemini-3-flash-agent",
-		"gemini-pro-agent":
+		"gemini-3.6-flash-low",
+		"gemini-3.6-flash-medium",
+		"gemini-3.6-flash-high",
+		"gemini-pro-agent",
+		"gpt-oss-120b-medium":
 		return true
 	default:
 		return false
