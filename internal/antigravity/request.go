@@ -142,6 +142,13 @@ func ensureAntigravityThinkingDefaults(req *GenerateContentRequest) {
 	if req == nil {
 		return
 	}
+	modelLower := strings.ToLower(req.Model)
+	if strings.Contains(modelLower, "gpt-oss") {
+		if req.Request.GenerationConfig != nil {
+			req.Request.GenerationConfig.ThinkingConfig = nil
+		}
+		return
+	}
 	if req.Request.GenerationConfig == nil {
 		req.Request.GenerationConfig = &GeminiGenerationConfig{}
 	}

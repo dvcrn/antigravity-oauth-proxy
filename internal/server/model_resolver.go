@@ -50,7 +50,16 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 		}
 
 	case isGemini37FlashModel(modelLower):
-		return modelGemini37FlashTiered
+		switch thinkingLevel {
+		case "high":
+			return modelGemini37FlashHigh
+		case "medium":
+			return modelGemini37FlashMedium
+		case "minimal", "low", "":
+			return modelGemini37FlashLow
+		default:
+			return modelGemini37FlashLow
+		}
 
 	case isGemini36FlashModel(modelLower):
 		switch thinkingLevel {
@@ -113,6 +122,9 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini36FlashMedium,
 		modelGemini36FlashLow,
 		modelGemini36FlashTiered,
+		modelGemini37FlashHigh,
+		modelGemini37FlashMedium,
+		modelGemini37FlashLow,
 		modelGemini37FlashTiered,
 		modelGemini31ProHighAgent,
 		modelGptOss120bMedium:
@@ -155,9 +167,8 @@ func isGemini35FlashModel(modelLower string) bool {
 
 func isGemini31FlashLiteModel(modelLower string) bool {
 	return strings.Contains(modelLower, "3.1-flash-lite") ||
-		modelLower == "gemini-2.5-flash" ||
-		modelLower == "gemini-2.5-flash-lite" ||
-		modelLower == "gemini-2.5-flash-thinking"
+		modelLower == "gemini-flash-lite" ||
+		modelLower == "flash-lite"
 }
 
 func isGptOssModel(modelLower string) bool {

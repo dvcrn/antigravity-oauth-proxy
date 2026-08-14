@@ -87,7 +87,6 @@ func TestPrepareAntigravityRequestClearsThinkingLevelForEncodedModel(t *testing.
 		"gemini-3.6-flash-high",
 		"gemini-3.6-flash-medium",
 		"gemini-3.6-flash-low",
-		"gpt-oss-120b-medium",
 	}
 
 	for _, model := range testModels {
@@ -119,6 +118,21 @@ func TestPrepareAntigravityRequestClearsThinkingLevelForEncodedModel(t *testing.
 				t.Fatalf("ThinkingBudget = %v, want 10001", thinkingConfig.ThinkingBudget)
 			}
 		})
+	}
+}
+
+func TestPrepareAntigravityRequestStripsThinkingConfigForGptOss(t *testing.T) {
+	req := &GenerateContentRequest{
+		Model: "gpt-oss-120b-medium",
+		Request: GeminiInternalRequest{
+			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+		},
+	}
+
+	prepareAntigravityRequest(req)
+
+	if req.Request.GenerationConfig != nil && req.Request.GenerationConfig.ThinkingConfig != nil {
+		t.Fatalf("ThinkingConfig should be nil for gpt-oss models")
 	}
 }
 
@@ -210,7 +224,7 @@ func TestApplyHeadersMatchesAntigravityCLI(t *testing.T) {
 	if got := header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	if got := header.Get("User-Agent"); !strings.HasPrefix(got, "antigravity/cli/1.0.5 ") {
+	if got := header.Get("User-Agent"); !strings.HasPrefix(got, "antigravity/cli/1.1.13 (aidev_client;") {
 		t.Fatalf("User-Agent = %q", got)
 	}
 	if got := header.Get("X-Goog-Api-Client"); got != "" {
