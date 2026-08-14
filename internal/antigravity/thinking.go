@@ -20,6 +20,8 @@ func applyGeminiThinkingPreset(req *GenerateContentRequest) {
 	switch {
 	case strings.Contains(modelLower, "-low"):
 		level = "low"
+	case strings.Contains(modelLower, "-medium"):
+		level = "medium"
 	case strings.Contains(modelLower, "-high"):
 		level = "high"
 	}
@@ -39,5 +41,7 @@ func applyGeminiThinkingPreset(req *GenerateContentRequest) {
 		req.Request.GenerationConfig.ThinkingConfig = &ThinkingConfig{}
 	}
 
-	req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel = level
+	if req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel == "" {
+		req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel = level
+	}
 }

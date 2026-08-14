@@ -10,7 +10,8 @@ import (
 )
 
 type FetchAvailableModelsResponse struct {
-	Models map[string]AvailableModel `json:"models"`
+	Models              map[string]AvailableModel `json:"models"`
+	DefaultAgentModelID string                    `json:"defaultAgentModelId,omitempty"`
 }
 
 type AvailableModel struct {

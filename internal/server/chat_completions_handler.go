@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/transform"
@@ -98,15 +99,27 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 		Int("tool_messages", toolMsgCount).
 		Msg("Tool result message count")
 
-	// Check if model exists, if not fallback to gemini-3.5-flash
+	// Check if model exists, if not fallback to default agent model
 	data, err := s.antigravityClient.FetchAvailableModels(r.Context())
 	if err == nil {
+		resolvedModel := resolveModelForThinking(req.Model, antigravity.GeminiInternalRequest{})
 		if _, exists := data.Models[req.Model]; !exists {
-			logger.Get().Warn().
-				Str("requested_model", req.Model).
-				Str("fallback_model", "gemini-3.5-flash").
-				Msg("Requested model is unknown. Normalizing to fallback model.")
-			req.Model = "gemini-3.5-flash"
+			if _, existsResolved := data.Models[resolvedModel]; !existsResolved {
+				fallbackModel := "gemini-3.7-flash-high"
+				if data.DefaultAgentModelID != "" {
+					if _, existsDefault := data.Models[data.DefaultAgentModelID]; existsDefault {
+						fallbackModel = data.DefaultAgentModelID
+					}
+				} else if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
+					fallbackModel = "gemini-3.5-flash-extra-low"
+				}
+				logger.Get().Warn().
+					Str("requested_model", req.Model).
+					Str("resolved_model", resolvedModel).
+					Str("fallback_model", fallbackModel).
+					Msg("Requested model is unknown. Normalizing to fallback model.")
+				req.Model = fallbackModel
+			}
 		}
 	} else {
 		logger.Get().Warn().Err(err).Msg("Failed to fetch available models to validate requested model")
@@ -132,6 +145,7 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 
 	requestedModel := gemReq.Model
 	resolvedModel := resolveModelForThinking(requestedModel, gemReq.Request)
+	applyModelThinkingDefaults(requestedModel, &gemReq.Request)
 	logGeminiThinkingConfig("incoming OpenAI stream", requestedModel, resolvedModel, gemReq.Request)
 	gemReq.Model = resolvedModel
 
@@ -425,6 +439,7 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 
 	requestedModel := gemReq.Model
 	resolvedModel := resolveModelForThinking(requestedModel, gemReq.Request)
+	applyModelThinkingDefaults(requestedModel, &gemReq.Request)
 	logGeminiThinkingConfig("incoming OpenAI non-stream", requestedModel, resolvedModel, gemReq.Request)
 	gemReq.Model = resolvedModel
 
