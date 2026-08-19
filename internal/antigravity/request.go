@@ -39,6 +39,7 @@ func prepareAntigravityRequest(req *GenerateContentRequest) {
 		applyGeminiThinkingPreset(req)
 	}
 	ensureAntigravityThinkingDefaults(req)
+	clampMaxOutputTokens(req)
 
 	if missing := fillMissingParameters(req.Request.Tools); missing > 0 {
 		logger.Get().Warn().
@@ -164,6 +165,38 @@ func ensureAntigravityThinkingDefaults(req *GenerateContentRequest) {
 	if thinkingConfig.ThinkingBudget == nil {
 		thinkingBudget := 10001
 		thinkingConfig.ThinkingBudget = &thinkingBudget
+	}
+}
+
+func maxAllowedOutputTokens(model string) int {
+	modelLower := strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.Contains(modelLower, "flash-lite") || strings.Contains(modelLower, "flash-image"):
+		return 32768
+	case strings.Contains(modelLower, "3.1-pro-low"):
+		return 32768
+	case strings.Contains(modelLower, "2.5-"):
+		return 32768
+	default:
+		return 65536
+	}
+}
+
+func clampMaxOutputTokens(req *GenerateContentRequest) {
+	if req == nil || req.Request.GenerationConfig == nil {
+		return
+	}
+	if req.Request.GenerationConfig.MaxOutputTokens <= 0 {
+		return
+	}
+	limit := maxAllowedOutputTokens(req.Model)
+	if req.Request.GenerationConfig.MaxOutputTokens > limit {
+		logger.Get().Info().
+			Str("model", req.Model).
+			Int("original_max_tokens", req.Request.GenerationConfig.MaxOutputTokens).
+			Int("clamped_max_tokens", limit).
+			Msg("Clamped maxOutputTokens to model maximum ceiling")
+		req.Request.GenerationConfig.MaxOutputTokens = limit
 	}
 }
 

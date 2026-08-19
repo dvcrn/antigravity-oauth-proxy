@@ -179,6 +179,43 @@ func TestPrepareAntigravityRequestPreservesThinkingConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareAntigravityRequestClampsMaxOutputTokens(t *testing.T) {
+	testCases := []struct {
+		model      string
+		maxTokens  int
+		wantTokens int
+	}{
+		{"gemini-3.1-flash-lite", 65536, 32768},
+		{"gemini-3.1-flash-lite", 100000, 32768},
+		{"gemini-3.1-flash-lite", 4096, 4096},
+		{"gemini-3.1-pro-low", 65536, 32768},
+		{"gemini-2.5-flash", 65536, 32768},
+		{"gemini-3-flash-agent", 65536, 65536},
+		{"gemini-3.7-flash-high", 65536, 65536},
+		{"gemini-3-flash", 65536, 65536},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.model, func(t *testing.T) {
+			req := &GenerateContentRequest{
+				Model: tc.model,
+				Request: GeminiInternalRequest{
+					Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+					GenerationConfig: &GeminiGenerationConfig{
+						MaxOutputTokens: tc.maxTokens,
+					},
+				},
+			}
+
+			prepareAntigravityRequest(req)
+
+			if req.Request.GenerationConfig.MaxOutputTokens != tc.wantTokens {
+				t.Fatalf("MaxOutputTokens = %d, want %d", req.Request.GenerationConfig.MaxOutputTokens, tc.wantTokens)
+			}
+		})
+	}
+}
+
 func TestLoadCodeAssistResponseParsesPaidTier(t *testing.T) {
 	body := []byte(`{
 		"currentTier":{"id":"free-tier","name":"Antigravity","description":"Gemini-powered code suggestions"},
