@@ -25,6 +25,7 @@ This proxy exposes Antigravity endpoints through:
 - `/v1beta/<model>:streamGenerateContent` for Gemini API compatible clients
 - `/v1/chat/completions` for OpenAI API compatible clients (experimental)
 - `/v1/models` to get available models
+- `/mcp` an MCP server exposing the models as tools (`ask_gemini`, `ask_gemini_models`)
 
 To run locally, or to deploy to Cloudflare Workers
 
@@ -88,6 +89,34 @@ Configurable with the following env variables:
 You can use either the native Gemini-supported API at `http://localhost:9878/v1beta`, or the OpenAI transform endpoint at `http://localhost:9878/v1/chat/completions`
 
 Recommended to use the Google / Gemini API when available as it's native to Antigravity
+
+### MCP clients
+
+The proxy also speaks MCP over streamable HTTP at `/mcp`, so any MCP client can ask
+Antigravity models a question without going through the Gemini or OpenAI endpoints.
+The session is stateless and authenticates with the same `ADMIN_API_KEY` as everything
+else, sent as a bearer token.
+
+```json
+{
+  "mcpServers": {
+    "ask-antigravity": {
+      "type": "http",
+      "url": "http://localhost:9878/mcp",
+      "headers": {
+        "Authorization": "Bearer xxxx"
+      }
+    }
+  }
+}
+```
+
+Two tools are exposed:
+
+- `ask_gemini(model, prompt)` - ask a model a single self-contained question and get
+  the answer back as text. There is no conversation history, so the prompt needs to
+  carry all the context.
+- `ask_gemini_models()` - list the model IDs the current Antigravity account can use.
 
 ### OpenCode (through Google plugin)
 
