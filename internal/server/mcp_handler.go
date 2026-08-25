@@ -89,6 +89,12 @@ func (s *Server) mcpHandler() http.HandlerFunc {
 		&mcpsdk.StreamableHTTPOptions{
 			Stateless:    true,
 			JSONResponse: true,
+			// The SDK auto-enables DNS rebinding protection when the listener is
+			// loopback, rejecting any request whose Host is not also loopback. The
+			// proxy is served on a public hostname through a tunnel that forwards
+			// the original Host, so that check rejects every remote client. Access
+			// is already gated by the admin bearer token in adminMiddleware.
+			DisableLocalhostProtection: true,
 		},
 	)
 	return handler.ServeHTTP
