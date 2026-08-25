@@ -231,6 +231,9 @@ func (c *Client) generateContentInternal(req *GenerateContentRequest) (*Generate
 		if err := json.Unmarshal(respBody, &result); err != nil {
 			return nil, fmt.Errorf("could not unmarshal response body: %w", err)
 		}
+		// Record which model served this response so callers can tell when the
+		// 404 fallback in GenerateContent swapped the model out from under them.
+		result.Model = req.Model
 
 		return &result, nil
 	}

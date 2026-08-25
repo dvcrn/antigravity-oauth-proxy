@@ -125,6 +125,12 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/v1/models/", s.modelsHandler)
 	s.mux.HandleFunc("/v1/models", s.modelsHandler)
 	s.mux.HandleFunc("/v1/chat/completions", s.adminMiddleware(s.openAIChatCompletionsHandler))
+
+	// MCP endpoint. The handler is built once so the tool set is shared across
+	// requests; the session itself is stateless.
+	mcpHandler := s.adminMiddleware(s.mcpHandler())
+	s.mux.HandleFunc("/mcp", mcpHandler)
+	s.mux.HandleFunc("/mcp/", mcpHandler)
 }
 
 // ServeHTTP implements http.Handler interface

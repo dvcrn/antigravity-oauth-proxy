@@ -369,4 +369,8 @@ func previewRawTools(raw json.RawMessage) string {
 // GenerateContentResponse represents the response from the generateContent endpoint.
 type GenerateContentResponse struct {
 	Response map[string]interface{} `json:"response"`
+
+	// Model is the model that actually served the response. It differs from the
+	// requested model when the client falls back to another model after a 404.
+	Model string `json:"-"`
 }
