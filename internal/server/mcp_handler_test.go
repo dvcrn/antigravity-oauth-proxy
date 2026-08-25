@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -256,4 +257,46 @@ func TestExtractGeminiText(t *testing.T) {
 			assert.Equal(t, tc.want, extractGeminiText(tc.response))
 		})
 	}
+}
+
+// TestMCPAllowsNonLoopbackHost guards the DisableLocalhostProtection option.
+// The SDK only applies DNS rebinding protection when the request carries a
+// loopback http.LocalAddrContextKey, which a real listener sets and
+// httptest.NewRequest does not - so this has to go through httptest.NewServer
+// to exercise the check at all.
+func TestMCPAllowsNonLoopbackHost(t *testing.T) {
+	srv := newMCPTestServer(t)
+
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	body, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/list",
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/mcp", bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+testAdminKey)
+	// A public hostname forwarded by a tunnel, which the rebinding check would
+	// otherwise reject with 403 because the listener itself is loopback.
+	req.Host = "proxy.example.com"
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "body: %s", respBody)
+
+	var decoded map[string]interface{}
+	require.NoError(t, json.Unmarshal(respBody, &decoded))
+	result, ok := decoded["result"].(map[string]interface{})
+	require.True(t, ok, "expected a result object, got %v", decoded)
+	require.NotEmpty(t, result["tools"])
 }
