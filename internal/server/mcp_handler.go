@@ -24,9 +24,9 @@ type askGeminiInput struct {
 	Prompt string `json:"prompt"`
 }
 
-// askGeminiOutput is the structured result of the ask_gemini tool. The resolved
-// model is reported back because model resolution can rewrite the requested ID
-// into the upstream variant that actually served the request.
+// askGeminiOutput is the structured result of the ask_gemini tool. Model is the
+// model that actually served the request, which can differ from the requested
+// one via model resolution or the client's 404 fallback.
 type askGeminiOutput struct {
 	RequestedModel string `json:"requested_model"`
 	Model          string `json:"model"`
@@ -136,21 +136,29 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		return askGeminiOutput{}, fmt.Errorf("ask_gemini failed for model %q: %w", requestedModel, err)
 	}
 
+	// The client can fall back to another model after a 404, so report the model
+	// that actually served the response rather than the one we asked for.
+	servedModel := resp.Model
+	if servedModel == "" {
+		servedModel = resolvedModel
+	}
+
 	text := extractGeminiText(resp.Response)
 	if text == "" {
-		return askGeminiOutput{}, fmt.Errorf("model %q returned no text", resolvedModel)
+		return askGeminiOutput{}, fmt.Errorf("model %q returned no text", servedModel)
 	}
 
 	logger.Get().Info().
 		Str("requested_model", requestedModel).
-		Str("model", resolvedModel).
+		Str("model", servedModel).
+		Str("resolved_model", resolvedModel).
 		Int("text_len", len(text)).
 		Dur("api_call_duration", time.Since(apiCallStart)).
 		Msg("MCP ask_gemini completed")
 
 	return askGeminiOutput{
 		RequestedModel: requestedModel,
-		Model:          resolvedModel,
+		Model:          servedModel,
 		Text:           text,
 	}, nil
 }
