@@ -35,3 +35,44 @@ func TestIsSupportedModel(t *testing.T) {
 		})
 	}
 }
+
+// Upstream returns the same displayName for several distinct model IDs, so the
+// listing must report the ID as the name to keep entries unique and accurate.
+func TestNewOpenAIModelNameIsModelID(t *testing.T) {
+	// The four IDs upstream all labels "Gemini 3.1 Flash Lite".
+	collidingIDs := []string{
+		"gemini-2.5-flash",
+		"gemini-2.5-flash-lite",
+		"gemini-2.5-flash-thinking",
+		"gemini-3.1-flash-lite",
+	}
+
+	for _, id := range collidingIDs {
+		t.Run(id, func(t *testing.T) {
+			if got := newOpenAIModel(id, modelFamily(id), 0).Name; got != id {
+				t.Errorf("newOpenAIModel(%q).Name = %q, want %q", id, got, id)
+			}
+		})
+	}
+}
+
+func TestNewOpenAIModelOwnedBy(t *testing.T) {
+	testCases := []struct {
+		modelID string
+		ownedBy string
+	}{
+		{"claude-opus-4-6-thinking", "anthropic"},
+		{"claude-sonnet-4-6", "anthropic"},
+		{"gemini-3.1-flash-lite", "google"},
+		{"gemini-2.5-pro", "google"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.modelID, func(t *testing.T) {
+			got := newOpenAIModel(tc.modelID, modelFamily(tc.modelID), 0).OwnedBy
+			if got != tc.ownedBy {
+				t.Errorf("newOpenAIModel(%q).OwnedBy = %q, want %q", tc.modelID, got, tc.ownedBy)
+			}
+		})
+	}
+}

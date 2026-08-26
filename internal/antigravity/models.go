@@ -15,6 +15,14 @@ type FetchAvailableModelsResponse struct {
 }
 
 type AvailableModel struct {
+	// DisplayName is upstream's human label. Do not surface it to clients: it is
+	// neither unique nor accurate. Four distinct IDs (gemini-2.5-flash,
+	// -flash-lite, -flash-thinking, gemini-3.1-flash-lite) all report "Gemini 3.1
+	// Flash Lite" and two report "Gemini 3.1 Pro (High)", so clients keying off
+	// the label see duplicates; the legacy gemini-2.5-flash* aliases are labelled
+	// for a different model entirely; and the *-flash-tiered IDs have no label at
+	// all. Report the model ID instead — it is unique and is what callers must
+	// pass back to us anyway.
 	DisplayName string          `json:"displayName"`
 	QuotaInfo   json.RawMessage `json:"quotaInfo,omitempty"`
 }

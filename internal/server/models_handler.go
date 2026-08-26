@@ -44,26 +44,17 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// One timestamp for the whole listing: a per-model time.Now() lets entries in
+	// the same response straddle a second boundary and report different values.
+	created := time.Now().Unix()
+
 	models := make([]openAIModel, 0, len(data.Models))
-	for modelID, modelData := range data.Models {
-		if !isSupportedModel(modelID) {
+	for modelID := range data.Models {
+		family := modelFamily(modelID)
+		if !isSupportedFamily(family) {
 			continue
 		}
-		ownedBy := "google"
-		if modelFamily(modelID) == "claude" {
-			ownedBy = "anthropic"
-		}
-		name := modelData.DisplayName
-		if name == "" {
-			name = modelID
-		}
-		models = append(models, openAIModel{
-			ID:      modelID,
-			Object:  "model",
-			Created: time.Now().Unix(),
-			OwnedBy: ownedBy,
-			Name:    name,
-		})
+		models = append(models, newOpenAIModel(modelID, family, created))
 	}
 
 	sort.Slice(models, func(i, j int) bool {
@@ -104,8 +95,29 @@ func writeAPIError(w http.ResponseWriter, status int, message string) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// newOpenAIModel builds the listing entry for a single upstream model ID.
+//
+// Name echoes the model ID; see AvailableModel.DisplayName for why upstream's
+// label is not used.
+func newOpenAIModel(modelID, family string, created int64) openAIModel {
+	ownedBy := "google"
+	if family == "claude" {
+		ownedBy = "anthropic"
+	}
+	return openAIModel{
+		ID:      modelID,
+		Object:  "model",
+		Created: created,
+		OwnedBy: ownedBy,
+		Name:    modelID,
+	}
+}
+
 func isSupportedModel(modelID string) bool {
-	family := modelFamily(modelID)
+	return isSupportedFamily(modelFamily(modelID))
+}
+
+func isSupportedFamily(family string) bool {
 	return family == "claude" || family == "gemini" || family == "gpt" || family == "openai"
 }
 
