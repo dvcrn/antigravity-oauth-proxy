@@ -102,6 +102,24 @@ func TestGenerateContentReportsTieredFallbackModel(t *testing.T) {
 	assert.Equal(t, []string{"gemini-3.7-flash-high", "gemini-3.7-flash-tiered"}, stub.requestedModel)
 }
 
+func TestGenerateContentReportsTieredFallbackModel38(t *testing.T) {
+	stub := &stubHTTPClient{
+		statusForModel: map[string]int{
+			"gemini-3.8-flash-high":   http.StatusNotFound,
+			"gemini-3.8-flash-tiered": http.StatusOK,
+		},
+	}
+
+	resp, err := newTestClient(stub).GenerateContent(&GenerateContentRequest{
+		Model:   "gemini-3.8-flash-high",
+		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "gemini-3.8-flash-tiered", resp.Model)
+	assert.Equal(t, []string{"gemini-3.8-flash-high", "gemini-3.8-flash-tiered"}, stub.requestedModel)
+}
+
 func TestGenerateContentDoesNotFallBackForOtherModels(t *testing.T) {
 	stub := &stubHTTPClient{
 		statusForModel: map[string]int{"gemini-3.1-pro-low": http.StatusNotFound},

@@ -22,6 +22,10 @@ const (
 	modelGemini37FlashMedium  = "gemini-3.7-flash-medium"
 	modelGemini37FlashHigh    = "gemini-3.7-flash-high"
 	modelGemini37FlashTiered  = "gemini-3.7-flash-tiered"
+	modelGemini38FlashLow     = "gemini-3.8-flash-low"
+	modelGemini38FlashMedium  = "gemini-3.8-flash-medium"
+	modelGemini38FlashHigh    = "gemini-3.8-flash-high"
+	modelGemini38FlashTiered  = "gemini-3.8-flash-tiered"
 	modelGemini31FlashLite    = "gemini-3.1-flash-lite"
 	modelGemini31FlashImage   = "gemini-3.1-flash-image"
 	modelGptOss120bMedium     = "gpt-oss-120b-medium"
@@ -47,6 +51,18 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 			return modelGemini31ProLow
 		default:
 			return modelGemini31ProLow
+		}
+
+	case isGemini38FlashModel(modelLower):
+		switch thinkingLevel {
+		case "high":
+			return modelGemini38FlashHigh
+		case "medium":
+			return modelGemini38FlashMedium
+		case "minimal", "low", "":
+			return modelGemini38FlashLow
+		default:
+			return modelGemini38FlashLow
 		}
 
 	case isGemini37FlashModel(modelLower):
@@ -126,6 +142,10 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini37FlashMedium,
 		modelGemini37FlashLow,
 		modelGemini37FlashTiered,
+		modelGemini38FlashHigh,
+		modelGemini38FlashMedium,
+		modelGemini38FlashLow,
+		modelGemini38FlashTiered,
 		modelGemini31ProHighAgent,
 		modelGptOss120bMedium:
 		return true
@@ -143,6 +163,14 @@ func normalizedThinkingLevel(req antigravity.GeminiInternalRequest) string {
 
 func isGemini31ProModel(modelLower string) bool {
 	return strings.Contains(modelLower, "3.1-pro") || modelLower == "gemini-pro-agent"
+}
+
+func isGemini38FlashModel(modelLower string) bool {
+	return strings.Contains(modelLower, "3.8-flash") ||
+		modelLower == modelGemini38FlashHigh ||
+		modelLower == modelGemini38FlashMedium ||
+		modelLower == modelGemini38FlashLow ||
+		modelLower == modelGemini38FlashTiered
 }
 
 func isGemini37FlashModel(modelLower string) bool {
@@ -180,7 +208,7 @@ func applyModelThinkingDefaults(requestedModel string, req *antigravity.GeminiIn
 		return
 	}
 	modelLower := strings.ToLower(strings.TrimSpace(requestedModel))
-	if !strings.Contains(modelLower, "3.7-flash") {
+	if !strings.Contains(modelLower, "3.7-flash") && !strings.Contains(modelLower, "3.8-flash") {
 		return
 	}
 	if req.GenerationConfig == nil {

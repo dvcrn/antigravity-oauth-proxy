@@ -10,6 +10,7 @@ func TestIsSupportedModel(t *testing.T) {
 		supported bool
 		family    string
 	}{
+		{"gemini-3.8-flash-high", true, "gemini"},
 		{"gemini-3.7-flash-high", true, "gemini"},
 		{"gemini-3.6-flash-low", true, "gemini"},
 		{"gemini-3.1-pro-low", true, "gemini"},

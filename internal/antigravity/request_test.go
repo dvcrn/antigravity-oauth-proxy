@@ -152,6 +152,22 @@ func TestPrepareAntigravityRequestAppliesGemini37ThinkingPreset(t *testing.T) {
 	}
 }
 
+func TestPrepareAntigravityRequestAppliesGemini38ThinkingPreset(t *testing.T) {
+	req := &GenerateContentRequest{
+		Model: "gemini-3.8-flash-high",
+		Request: GeminiInternalRequest{
+			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+		},
+	}
+
+	prepareAntigravityRequest(req)
+
+	thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
+	if thinkingConfig.ThinkingLevel != "high" {
+		t.Fatalf("ThinkingLevel = %q, want %q", thinkingConfig.ThinkingLevel, "high")
+	}
+}
+
 func TestPrepareAntigravityRequestPreservesThinkingConfig(t *testing.T) {
 	includeThoughts := false
 	thinkingBudget := 123
@@ -192,6 +208,7 @@ func TestPrepareAntigravityRequestClampsMaxOutputTokens(t *testing.T) {
 		{"gemini-2.5-flash", 65536, 32768},
 		{"gemini-3-flash-agent", 65536, 65536},
 		{"gemini-3.7-flash-high", 65536, 65536},
+		{"gemini-3.8-flash-high", 65536, 65536},
 		{"gemini-3-flash", 65536, 65536},
 	}
 

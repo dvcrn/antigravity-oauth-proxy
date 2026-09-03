@@ -175,14 +175,27 @@ func (c *Client) LoadCodeAssist() (*LoadCodeAssistResponse, error) {
 	return nil, fmt.Errorf("loadCodeAssist failed with no endpoints available")
 }
 
+func tieredFallbackModel(model string) string {
+	modelLower := strings.ToLower(model)
+	if strings.Contains(modelLower, "3.7-flash") && model != "gemini-3.7-flash-tiered" {
+		return "gemini-3.7-flash-tiered"
+	}
+	if strings.Contains(modelLower, "3.8-flash") && model != "gemini-3.8-flash-tiered" {
+		return "gemini-3.8-flash-tiered"
+	}
+	return ""
+}
+
 // GenerateContent performs a request to the Cloud Code API to generate content.
 func (c *Client) GenerateContent(req *GenerateContentRequest) (*GenerateContentResponse, error) {
 	resp, err := c.generateContentInternal(req)
-	if err != nil && is404Error(err) && strings.Contains(strings.ToLower(req.Model), "3.7-flash") && req.Model != "gemini-3.7-flash-tiered" {
-		logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with gemini-3.7-flash-tiered")
-		tieredReq := *req
-		tieredReq.Model = "gemini-3.7-flash-tiered"
-		return c.generateContentInternal(&tieredReq)
+	if err != nil && is404Error(err) {
+		if fallback := tieredFallbackModel(req.Model); fallback != "" {
+			logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with tiered variant")
+			tieredReq := *req
+			tieredReq.Model = fallback
+			return c.generateContentInternal(&tieredReq)
+		}
 	}
 	return resp, err
 }
@@ -249,11 +262,13 @@ func (c *Client) generateContentInternal(req *GenerateContentRequest) (*Generate
 // The caller owns the lifecycle of the 'out' channel; this function will not close it.
 func (c *Client) StreamGenerateContent(ctx context.Context, req *GenerateContentRequest, out chan<- string) error {
 	err := c.streamGenerateContentInternal(ctx, req, out)
-	if err != nil && is404Error(err) && strings.Contains(strings.ToLower(req.Model), "3.7-flash") && req.Model != "gemini-3.7-flash-tiered" {
-		logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with gemini-3.7-flash-tiered")
-		tieredReq := *req
-		tieredReq.Model = "gemini-3.7-flash-tiered"
-		return c.streamGenerateContentInternal(ctx, &tieredReq, out)
+	if err != nil && is404Error(err) {
+		if fallback := tieredFallbackModel(req.Model); fallback != "" {
+			logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with tiered variant")
+			tieredReq := *req
+			tieredReq.Model = fallback
+			return c.streamGenerateContentInternal(ctx, &tieredReq, out)
+		}
 	}
 	return err
 }

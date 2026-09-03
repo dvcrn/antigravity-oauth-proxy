@@ -146,6 +146,36 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-3.7-flash-tiered",
 		},
 		{
+			name:          "Gemini 3.8 Flash default",
+			model:         "gemini-3.8-flash",
+			thinkingLevel: "",
+			expected:      "gemini-3.8-flash-low",
+		},
+		{
+			name:          "Gemini 3.8 Flash low",
+			model:         "gemini-3.8-flash",
+			thinkingLevel: "LOW",
+			expected:      "gemini-3.8-flash-low",
+		},
+		{
+			name:          "Gemini 3.8 Flash medium",
+			model:         "gemini-3.8-flash",
+			thinkingLevel: "MEDIUM",
+			expected:      "gemini-3.8-flash-medium",
+		},
+		{
+			name:          "Gemini 3.8 Flash high",
+			model:         "gemini-3.8-flash",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-3.8-flash-high",
+		},
+		{
+			name:          "Gemini 3.8 Flash tiered direct match",
+			model:         "gemini-3.8-flash-tiered",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-3.8-flash-tiered",
+		},
+		{
 			name:          "Gemini 3.6 Flash default",
 			model:         "gemini-3.6-flash",
 			thinkingLevel: "",

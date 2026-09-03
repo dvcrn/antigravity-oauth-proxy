@@ -103,22 +103,27 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 	data, err := s.antigravityClient.FetchAvailableModels(r.Context())
 	if err == nil {
 		resolvedModel := resolveModelForThinking(req.Model, antigravity.GeminiInternalRequest{})
-		if _, exists := data.Models[req.Model]; !exists {
-			if _, existsResolved := data.Models[resolvedModel]; !existsResolved {
-				fallbackModel := "gemini-3.7-flash-high"
-				if data.DefaultAgentModelID != "" {
-					if _, existsDefault := data.Models[data.DefaultAgentModelID]; existsDefault {
-						fallbackModel = data.DefaultAgentModelID
+		if !isKnownUpstreamModelID(resolvedModel) && !isKnownUpstreamModelID(req.Model) {
+			if _, exists := data.Models[req.Model]; !exists {
+				if _, existsResolved := data.Models[resolvedModel]; !existsResolved {
+					fallbackModel := "gemini-3.8-flash-high"
+					if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
+						fallbackModel = "gemini-3.7-flash-high"
 					}
-				} else if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
-					fallbackModel = "gemini-3.5-flash-extra-low"
+					if data.DefaultAgentModelID != "" {
+						if _, existsDefault := data.Models[data.DefaultAgentModelID]; existsDefault {
+							fallbackModel = data.DefaultAgentModelID
+						}
+					} else if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
+						fallbackModel = "gemini-3.5-flash-extra-low"
+					}
+					logger.Get().Warn().
+						Str("requested_model", req.Model).
+						Str("resolved_model", resolvedModel).
+						Str("fallback_model", fallbackModel).
+						Msg("Requested model is unknown. Normalizing to fallback model.")
+					req.Model = fallbackModel
 				}
-				logger.Get().Warn().
-					Str("requested_model", req.Model).
-					Str("resolved_model", resolvedModel).
-					Str("fallback_model", fallbackModel).
-					Msg("Requested model is unknown. Normalizing to fallback model.")
-				req.Model = fallbackModel
 			}
 		}
 	} else {
