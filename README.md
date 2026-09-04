@@ -2,6 +2,23 @@
 
 Antigravity OAuth Proxy makes the models available to your Google Antigravity account usable through the Gemini API, an OpenAI-compatible endpoint, or MCP. It handles Google OAuth credentials and translates requests to the internal Cloud Code API used by Antigravity.
 
+```text
+  ┌───────────────┐          ┌───────────────────┐          ┌───────────────────────┐
+  │ External Tool │          │ Antigravity Proxy │          │ Google Cloud Endpoint │
+  │ (OpenCode/etc)│          │ (Local or Worker) │          │      (Cloud Code)     │
+  └───────┬───────┘          └─────────┬─────────┘          └───────────┬───────────┘
+          │                            │                                │
+          │  Standard API request      │    Cloud Code request          │
+          │ ─────────────────────────▶ │ ─────────────────────────────▶ │
+          │                            │    OAuth access token          │
+          │                            │                                │
+          │  Standard API response     │    Cloud Code response         │
+          │ ◀───────────────────────── │ ◀───────────────────────────── │
+          │    JSON or SSE stream      │                                │
+          │                            │                                │
+          ▼                            ▼                                ▼
+```
+
 Use the native Gemini endpoint when your client supports it. The OpenAI-compatible endpoint is available for clients that only speak the OpenAI protocol.
 
 ## Quick start
