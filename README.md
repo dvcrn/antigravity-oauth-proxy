@@ -2,17 +2,19 @@
 
 Antigravity OAuth Proxy makes the models available to your Google Antigravity account usable through the Gemini API, an OpenAI-compatible endpoint, or MCP. It handles Google OAuth credentials and translates requests to the internal Cloud Code API used by Antigravity.
 
+The MCP server at `/mcp` gives agents tools to discover models available to your Antigravity account and send one-shot prompts without configuring a Gemini or OpenAI API client.
+
 ```text
   ┌───────────────┐          ┌───────────────────┐          ┌───────────────────────┐
   │ External Tool │          │ Antigravity Proxy │          │ Google Cloud Endpoint │
   │ (OpenCode/etc)│          │ (Local or Worker) │          │      (Cloud Code)     │
   └───────┬───────┘          └─────────┬─────────┘          └───────────┬───────────┘
           │                            │                                │
-          │  Standard API request      │    Cloud Code request          │
+          │  API or MCP request        │    Cloud Code request          │
           │ ─────────────────────────▶ │ ─────────────────────────────▶ │
           │                            │    OAuth access token          │
           │                            │                                │
-          │  Standard API response     │    Cloud Code response         │
+          │  API or MCP response       │    Cloud Code response         │
           │ ◀───────────────────────── │ ◀───────────────────────────── │
           │    JSON or SSE stream      │                                │
           │                            │                                │
@@ -112,6 +114,19 @@ Set `CLOUDCODE_OAUTH_CREDS_PATH` to use a different credentials file, or provide
 
 ## MCP clients
 
+The `/mcp` endpoint uses stateless streamable HTTP with JSON responses. It keeps no conversation or session state between calls.
+
+MCP requests use the proxy's Google OAuth credentials upstream and the same `ADMIN_API_KEY` as the generation endpoints. No separate Gemini API key is required.
+
+MCP configuration varies by client. Configure a streamable HTTP server with:
+
+| Setting | Value |
+| --- | --- |
+| URL | `http://localhost:9878/mcp` |
+| Header | `Authorization: Bearer replace-with-your-admin-key` |
+
+For clients that use an `mcpServers` JSON object:
+
 ```json
 {
   "mcpServers": {
@@ -126,7 +141,16 @@ Set `CLOUDCODE_OAUTH_CREDS_PATH` to use a different credentials file, or provide
 }
 ```
 
-The server exposes `ask_gemini(model, prompt)` for one-shot prompts and `ask_gemini_models()` for model discovery.
+The client discovers these tools after it connects:
+
+| Tool | Input | Result |
+| --- | --- | --- |
+| `ask_gemini_models` | None | The default model and available model IDs |
+| `ask_gemini` | `model`, `prompt` | The requested model, model that served the request, and response text |
+
+Call `ask_gemini_models` first when the model ID is not already known. Its results reflect the models currently available to the signed-in Antigravity account.
+
+`ask_gemini` is one-shot. It does not retain conversation history, so `prompt` must include all context needed for that call. The returned `model` may differ from `requested_model` when the proxy resolves a model variant or falls back after an upstream 404.
 
 ## Cloudflare Workers
 
