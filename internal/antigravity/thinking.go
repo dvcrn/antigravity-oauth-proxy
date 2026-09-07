@@ -41,7 +41,5 @@ func applyGeminiThinkingPreset(req *GenerateContentRequest) {
 		req.Request.GenerationConfig.ThinkingConfig = &ThinkingConfig{}
 	}
 
-	if req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel == "" {
-		req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel = level
-	}
+	req.Request.GenerationConfig.ThinkingConfig.ThinkingLevel = level
 }

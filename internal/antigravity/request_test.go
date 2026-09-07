@@ -153,18 +153,46 @@ func TestPrepareAntigravityRequestAppliesGemini37ThinkingPreset(t *testing.T) {
 }
 
 func TestPrepareAntigravityRequestAppliesGemini38ThinkingPreset(t *testing.T) {
-	req := &GenerateContentRequest{
-		Model: "gemini-3.8-flash-high",
-		Request: GeminiInternalRequest{
-			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+	testCases := []struct {
+		name          string
+		model         string
+		incomingLevel string
+		wantLevel     string
+	}{
+		{
+			name:      "defaults from suffix",
+			model:     "gemini-3.8-flash-high",
+			wantLevel: "high",
+		},
+		{
+			name:          "suffix overrides incoming level",
+			model:         "gemini-3.8-flash-medium",
+			incomingLevel: "MINIMAL",
+			wantLevel:     "medium",
 		},
 	}
 
-	prepareAntigravityRequest(req)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &GenerateContentRequest{
+				Model: tc.model,
+				Request: GeminiInternalRequest{
+					Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+				},
+			}
+			if tc.incomingLevel != "" {
+				req.Request.GenerationConfig = &GeminiGenerationConfig{
+					ThinkingConfig: &ThinkingConfig{ThinkingLevel: tc.incomingLevel},
+				}
+			}
 
-	thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
-	if thinkingConfig.ThinkingLevel != "high" {
-		t.Fatalf("ThinkingLevel = %q, want %q", thinkingConfig.ThinkingLevel, "high")
+			prepareAntigravityRequest(req)
+
+			thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
+			if thinkingConfig.ThinkingLevel != tc.wantLevel {
+				t.Fatalf("ThinkingLevel = %q, want %q", thinkingConfig.ThinkingLevel, tc.wantLevel)
+			}
+		})
 	}
 }
 
