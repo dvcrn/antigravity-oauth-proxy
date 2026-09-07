@@ -14,6 +14,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
+	serverhttp "github.com/dvcrn/antigravity-oauth-proxy/internal/http"
 )
 
 const (
@@ -27,6 +30,21 @@ type Config struct {
 	ClientSecret string
 	RedirectURI  string
 	Scopes       []string
+}
+
+func DefaultConfig() Config {
+	return Config{
+		ClientID:     credentials.OAuthClientID,
+		ClientSecret: credentials.OAuthClientSecret,
+		RedirectURI:  credentials.OAuthRedirectURI,
+		Scopes: []string{
+			"https://www.googleapis.com/auth/cloud-platform",
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+			"https://www.googleapis.com/auth/cclog",
+			"https://www.googleapis.com/auth/experimentsandconfigs",
+		},
+	}
 }
 
 type Tokens struct {
@@ -148,6 +166,10 @@ func WaitForCallback(ctx context.Context, redirectURI string) (CallbackResult, e
 }
 
 func ExchangeCode(ctx context.Context, cfg Config, code string, pkceVerifier string) (Tokens, error) {
+	return ExchangeCodeWithClient(ctx, serverhttp.NewHTTPClient(), cfg, code, pkceVerifier)
+}
+
+func ExchangeCodeWithClient(ctx context.Context, client serverhttp.HTTPClient, cfg Config, code string, pkceVerifier string) (Tokens, error) {
 	form := url.Values{}
 	form.Set("client_id", cfg.ClientID)
 	form.Set("client_secret", cfg.ClientSecret)
@@ -156,24 +178,24 @@ func ExchangeCode(ctx context.Context, cfg Config, code string, pkceVerifier str
 	form.Set("grant_type", "authorization_code")
 	form.Set("redirect_uri", cfg.RedirectURI)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", googleTokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, googleTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return Tokens{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return Tokens{}, err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return Tokens{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return Tokens{}, fmt.Errorf("token exchange failed: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return Tokens{}, fmt.Errorf("token exchange failed with status %d", resp.StatusCode)
 	}
 
 	var raw struct {
@@ -187,8 +209,8 @@ func ExchangeCode(ctx context.Context, cfg Config, code string, pkceVerifier str
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return Tokens{}, err
 	}
-	if raw.AccessToken == "" {
-		return Tokens{}, fmt.Errorf("no access_token returned")
+	if raw.AccessToken == "" || raw.ExpiresIn <= 0 {
+		return Tokens{}, fmt.Errorf("invalid token exchange response")
 	}
 
 	return Tokens{
@@ -202,24 +224,28 @@ func ExchangeCode(ctx context.Context, cfg Config, code string, pkceVerifier str
 }
 
 func FetchUserInfo(ctx context.Context, accessToken string) (UserInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", userInfoURL, nil)
+	return fetchUserInfoWithClient(ctx, serverhttp.NewHTTPClient(), accessToken)
+}
+
+func fetchUserInfoWithClient(ctx context.Context, client serverhttp.HTTPClient, accessToken string) (UserInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, userInfoURL, nil)
 	if err != nil {
 		return UserInfo{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return UserInfo{}, err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return UserInfo{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return UserInfo{}, fmt.Errorf("userinfo failed: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return UserInfo{}, fmt.Errorf("userinfo failed with status %d", resp.StatusCode)
 	}
 
 	var ui UserInfo

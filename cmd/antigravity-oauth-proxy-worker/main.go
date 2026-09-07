@@ -60,7 +60,7 @@ func init() {
 	}
 
 	// Create server with provider and project ID
-	srv = server.NewServer(provider, projectID)
+	srv = server.NewServer(provider, projectID, server.WithGoogleAuth(provider))
 
 	// Load OAuth credentials on startup
 	if err := srv.LoadCredentials(false); err != nil {

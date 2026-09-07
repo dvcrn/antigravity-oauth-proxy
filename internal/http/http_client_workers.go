@@ -4,7 +4,9 @@ package http
 
 import (
 	"net/http"
+	"syscall/js"
 
+	"github.com/syumai/workers/cloudflare"
 	"github.com/syumai/workers/cloudflare/fetch"
 )
 
@@ -15,8 +17,11 @@ type WorkersHTTPClient struct {
 
 // NewHTTPClient creates a new HTTP client for Workers environment
 func NewHTTPClient() HTTPClient {
+	binding := cloudflare.GetBinding("ANTIGRAVITY_EGRESS")
+	namespace := js.Global().Get("Object").New()
+	namespace.Set("fetch", binding.Get("fetch").Call("bind", binding))
 	return &WorkersHTTPClient{
-		client: fetch.NewClient(),
+		client: fetch.NewClient(fetch.WithBinding(namespace)),
 	}
 }
 
@@ -36,5 +41,5 @@ func (c *WorkersHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	// Perform the request
-	return c.client.Do(fetchReq, nil)
+	return c.client.Do(fetchReq, &fetch.RequestInit{Redirect: fetch.RedirectModeManual})
 }

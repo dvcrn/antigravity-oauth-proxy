@@ -16,20 +16,31 @@ import (
 type Server struct {
 	httpClient        serverhttp.HTTPClient
 	provider          credentials.CredentialsProvider
-	oauthCreds        *credentials.OAuthCredentials
 	projectID         string
 	mux               *http.ServeMux
 	antigravityClient *antigravity.Client
+	googleAuth        *GoogleAuth
+}
+
+type Option func(*Server)
+
+func WithGoogleAuth(store GoogleAuthStore) Option {
+	return func(s *Server) {
+		s.googleAuth = newGoogleAuth(store, s.httpClient)
+	}
 }
 
 // NewServer creates a new server instance with the given credentials provider
-func NewServer(provider credentials.CredentialsProvider, projectID string) *Server {
+func NewServer(provider credentials.CredentialsProvider, projectID string, options ...Option) *Server {
 	s := &Server{
 		httpClient:        serverhttp.NewHTTPClient(),
 		provider:          provider,
 		projectID:         projectID,
 		mux:               http.NewServeMux(),
 		antigravityClient: antigravity.NewClient(provider),
+	}
+	for _, option := range options {
+		option(s)
 	}
 	s.setupRoutes()
 
@@ -58,8 +69,6 @@ func (s *Server) LoadCredentials(isPeriodicRefresh bool) error {
 		return err
 	}
 
-	s.oauthCreds = creds
-
 	// Check if token is expired (with a 5-minute buffer)
 	if creds.ExpiryDate > 0 {
 		expiryTime := time.Unix(creds.ExpiryDate/1000, 0)
@@ -68,13 +77,6 @@ func (s *Server) LoadCredentials(isPeriodicRefresh bool) error {
 			if err := s.provider.RefreshToken(); err != nil {
 				logger.Get().Error().Err(err).Msg("Failed to refresh OAuth token")
 				// Continue with the expired token, the API call might still work or will fail with 401
-			} else {
-				// Reload credentials after refresh
-				creds, err = s.provider.GetCredentials()
-				if err != nil {
-					return err
-				}
-				s.oauthCreds = creds
 			}
 		} else {
 			if !isPeriodicRefresh {
@@ -121,6 +123,12 @@ func (s *Server) startTokenRefreshLoop() {
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/admin/credentials", s.adminMiddleware(s.credentialsHandler))
 	s.mux.HandleFunc("/admin/credentials/status", s.adminMiddleware(s.credentialsStatusHandler))
+	if s.googleAuth != nil {
+		s.mux.HandleFunc("/admin/auth/start", s.adminMiddleware(s.googleAuthStartHandler))
+		s.mux.HandleFunc("/admin/auth/status", s.adminMiddleware(s.googleAuthStatusHandler))
+		s.mux.HandleFunc("/admin/tokens", s.adminMiddleware(s.tokensHandler))
+		s.mux.HandleFunc("/admin/status", s.adminMiddleware(s.tokenStatusHandler))
+	}
 	s.mux.HandleFunc("/v1beta/models/", s.adminMiddleware(s.streamGenerateContentHandler))
 	s.mux.HandleFunc("/v1/models/", s.modelsHandler)
 	s.mux.HandleFunc("/v1/models", s.modelsHandler)
@@ -159,9 +167,6 @@ func (s *Server) credentialsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save credentials", http.StatusInternalServerError)
 		return
 	}
-
-	// Update server's cached credentials
-	s.oauthCreds = &creds
 
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")

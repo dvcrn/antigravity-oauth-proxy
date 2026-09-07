@@ -15,7 +15,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		// Log the request
 		logger.Get().Info().
 			Str("method", r.Method).
-			Str("url", r.URL.String()).
+			Str("path", r.URL.Path).
 			Str("remote_addr", r.RemoteAddr).
 			Msg("Incoming request")
 
@@ -25,7 +25,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		// Log the response
 		logger.Get().Info().
 			Str("method", r.Method).
-			Str("url", r.URL.String()).
+			Str("path", r.URL.Path).
 			Dur("duration", time.Since(start)).
 			Msg("Finished request")
 	})

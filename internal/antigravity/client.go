@@ -55,6 +55,7 @@ type Client struct {
 	httpClient serverhttp.HTTPClient
 	provider   credentials.CredentialsProvider
 
+	refreshMu       sync.Mutex
 	mu              sync.RWMutex
 	modelsCache     *FetchAvailableModelsResponse
 	modelsCacheTime time.Time
@@ -69,7 +70,7 @@ func NewClient(provider credentials.CredentialsProvider) *Client {
 }
 
 func (c *Client) doRequest(ctx context.Context, method string, url string, body []byte, accept string) (*http.Response, error) {
-	creds, err := c.provider.GetCredentials()
+	creds, err := c.getValidCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get credentials: %w", err)
 	}
@@ -98,6 +99,29 @@ func (c *Client) doRequest(ctx context.Context, method string, url string, body 
 	}
 
 	return c.doRequestWithToken(ctx, method, url, body, accept, refreshedCreds.AccessToken)
+}
+
+func (c *Client) getValidCredentials() (*credentials.OAuthCredentials, error) {
+	creds, err := c.provider.GetCredentials()
+	if err != nil || !tokenExpiresSoon(creds) {
+		return creds, err
+	}
+
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
+
+	creds, err = c.provider.GetCredentials()
+	if err != nil || !tokenExpiresSoon(creds) {
+		return creds, err
+	}
+	if err := c.provider.RefreshToken(); err != nil {
+		return nil, fmt.Errorf("refresh expiring token: %w", err)
+	}
+	return c.provider.GetCredentials()
+}
+
+func tokenExpiresSoon(creds *credentials.OAuthCredentials) bool {
+	return creds != nil && creds.ExpiryDate > 0 && time.Now().Add(5*time.Minute).UnixMilli() >= creds.ExpiryDate
 }
 
 func (c *Client) doRequestWithToken(ctx context.Context, method string, url string, body []byte, accept string, token string) (*http.Response, error) {

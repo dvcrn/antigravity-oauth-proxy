@@ -3,12 +3,9 @@ package credentials
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
@@ -168,62 +165,13 @@ func (f *FileProvider) RefreshToken() error {
 	if err != nil {
 		return fmt.Errorf("failed to get credentials for refresh: %w", err)
 	}
-
-	if creds.RefreshToken == "" {
-		return fmt.Errorf("no refresh token available")
-	}
-
-	// Prepare refresh request
-	form := url.Values{}
-	form.Add("client_id", OAuthClientID)
-	form.Add("client_secret", OAuthClientSecret)
-	form.Add("refresh_token", creds.RefreshToken)
-	form.Add("grant_type", "refresh_token")
-
-	req, err := http.NewRequest("POST", "https://oauth2.googleapis.com/token", strings.NewReader(form.Encode()))
+	updated, err := refreshOAuthToken(f.httpClient, creds)
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	// Execute refresh request
-	resp, err := f.httpClient.Do(req)
-	if err != nil {
-		return err
+	if err := f.SaveCredentials(updated); err != nil {
+		return fmt.Errorf("save refreshed credentials: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
-	var refreshResp TokenRefreshResponse
-	if err := json.Unmarshal(body, &refreshResp); err != nil {
-		return err
-	}
-
-	// Update credentials
-	creds.AccessToken = refreshResp.AccessToken
-	creds.ExpiryDate = time.Now().Add(time.Duration(refreshResp.ExpiresIn)*time.Second).Unix() * 1000
-	creds.TokenType = refreshResp.TokenType
-
-	// Update scope if provided in refresh response
-	if refreshResp.Scope != "" {
-		creds.Scope = refreshResp.Scope
-	}
-
-	// Save updated credentials
-	if err := f.SaveCredentials(creds); err != nil {
-		logger.Get().Warn().Err(err).Msg("failed to save refreshed credentials")
-		// Don't fail the refresh if save fails
-	}
-
 	logger.Get().Info().Msg("Successfully refreshed OAuth token")
 	return nil
 }

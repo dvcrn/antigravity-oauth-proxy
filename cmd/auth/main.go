@@ -20,14 +20,6 @@ import (
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/logger"
 )
 
-var defaultScopes = []string{
-	"https://www.googleapis.com/auth/cloud-platform",
-	"https://www.googleapis.com/auth/userinfo.email",
-	"https://www.googleapis.com/auth/userinfo.profile",
-	"https://www.googleapis.com/auth/cclog",
-	"https://www.googleapis.com/auth/experimentsandconfigs",
-}
-
 func main() {
 	var (
 		noBrowser = flag.Bool("no-browser", false, "Don\"t attempt to open a browser; paste code/URL manually")
@@ -38,12 +30,7 @@ func main() {
 
 	logger.Get().Info().Msg("Starting OAuth login flow")
 
-	cfg := auth.Config{
-		ClientID:     credentials.OAuthClientID,
-		ClientSecret: credentials.OAuthClientSecret,
-		RedirectURI:  credentials.OAuthRedirectURI,
-		Scopes:       defaultScopes,
-	}
+	cfg := auth.DefaultConfig()
 
 	state, err := auth.GenerateState()
 	fatalIf(err)

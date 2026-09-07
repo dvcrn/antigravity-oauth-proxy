@@ -1,17 +1,26 @@
 name = "antigravity-oauth-proxy"
 main = "build/worker.mjs"
-compatibility_date = "2022-05-13"
+compatibility_date = "2026-09-07"
 account_id = "02c07a2514d9a25f58c78a180bb8c6f3"
+workers_dev = true
 compatibility_flags = [
     "streams_enable_constructors"
 ]
 kv_namespaces = [
-  { binding = "gemini_code_assist_proxy_kv", id = "2c683e97ff6a43c7b20edca20419bd1f" }
+  { binding = "ANTIGRAVITY_AUTH", id = "4065e13471e546858a8c7a95e28ff176" }
+]
+vpc_networks = [
+  { binding = "ANTIGRAVITY_EGRESS", tunnel_id = "ce0561f2-73c2-486f-98ee-1a2f2e72ffa8", remote = true }
 ]
 
 [vars]
-ENV = "prod" # or prod
-DEBUG_SSE = "true"
+ENV = "production"
 
 [build]
 command = "mise run build-worker"
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true

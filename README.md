@@ -111,6 +111,11 @@ Set `CLOUDCODE_OAUTH_CREDS_PATH` to use a different credentials file, or provide
 | `POST /v1/chat/completions` | OpenAI-compatible chat completions |
 | `GET /v1/models` | Models available to the signed-in account |
 | `POST /mcp` | Stateless MCP server with `ask_gemini` and `ask_gemini_models` |
+| `POST /admin/auth/start` | Start Workers Google authorization |
+| `GET /admin/auth/status` | Read the Workers authorization state |
+| `POST /admin/auth/status` | Exchange an authorization code and store tokens |
+| `POST /admin/tokens` | Store OAuth tokens manually in Workers KV |
+| `GET /admin/status` | Check whether Workers credentials are configured |
 
 ## MCP clients
 
@@ -154,30 +159,40 @@ Call `ask_gemini_models` first when the model ID is not already known. Its resul
 
 ## Cloudflare Workers
 
-Workers deployments store OAuth credentials in KV. The checked-in `wrangler.toml` contains the maintainer's account and namespace IDs. Remove or replace `account_id`, create a namespace in your account, and replace the `gemini_code_assist_proxy_kv` binding's `id` with the new namespace ID before deploying:
+Workers deployments store OAuth credentials in KV and use a [Workers VPC](https://developers.cloudflare.com/workers-vpc/) tunnel for provider egress. Create a tunnel in **Cloudflare Dashboard > Workers VPC > Tunnels**, run `cloudflared` on a machine with normal Internet access, and put its UUID in `wrangler.toml`.
 
 ```bash
-wrangler kv namespace create antigravity-oauth-proxy-kv
-mise run build-worker
-wrangler secret put ADMIN_API_KEY
+wrangler kv namespace create ANTIGRAVITY_OAUTH_PROXY_KV
 wrangler deploy
+wrangler secret put ADMIN_API_KEY
 ```
 
-Generate credentials locally with `go run ./cmd/auth`, then upload the resulting file to the Worker:
+Set the returned KV namespace ID on the `ANTIGRAVITY_AUTH` binding. Set the tunnel UUID on the `ANTIGRAVITY_EGRESS` binding. See Cloudflare's [tunnel setup](https://developers.cloudflare.com/workers-vpc/configuration/tunnel/) and [VPC Networks guide](https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/).
+
+### Authorize Google on Workers
+
+All admin requests require `Authorization: Bearer <ADMIN_API_KEY>`, `X-API-Key: <ADMIN_API_KEY>`, or `X-Goog-Api-Key: <ADMIN_API_KEY>`.
 
 ```bash
-curl -X POST "https://your-worker.example/admin/credentials" \
-  -H "Authorization: Bearer replace-with-your-admin-key" \
+BASE_URL="https://antigravity-oauth-proxy.<SUBDOMAIN>.workers.dev"
+
+curl -X POST "$BASE_URL/admin/auth/start" \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
+```
+
+Open the returned `authorizationUrl` and approve access. The browser redirects to `localhost`; if no callback server is running, copy the final URL from the address bar and submit it as `code`:
+
+```bash
+curl -X POST "$BASE_URL/admin/auth/status" \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  --data-binary @"$HOME/.config/antigravity-oauth-proxy/oauth_creds.json"
+  -d '{"code":"http://localhost:51121/oauth-callback?code=...&state=..."}'
+
+curl "$BASE_URL/admin/status" \
+  -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
 
-Check the stored credential status with:
-
-```bash
-curl "https://your-worker.example/admin/credentials/status" \
-  -H "Authorization: Bearer replace-with-your-admin-key"
-```
+`POST /admin/tokens` supports manual setup with `accessToken`, `refreshToken`, `expiresAt` in Unix milliseconds, and optional `tokenType`, `scope`, and `idToken`. Existing `/admin/credentials` endpoints remain available for compatibility. Access tokens are refreshed five minutes before expiry or after an upstream 401 and saved back to KV.
 
 ## Configuration
 
