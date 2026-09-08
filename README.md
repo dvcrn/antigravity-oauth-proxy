@@ -159,15 +159,38 @@ Call `ask_gemini_models` first when the model ID is not already known. Its resul
 
 ## Cloudflare Workers
 
-Workers deployments store OAuth credentials in KV and use a [Workers VPC](https://developers.cloudflare.com/workers-vpc/) tunnel for provider egress. Create a tunnel in **Cloudflare Dashboard > Workers VPC > Tunnels**, run `cloudflared` on a machine with normal Internet access, and put its UUID in `wrangler.toml`.
+Workers deployments store OAuth credentials in KV and use a [Workers VPC](https://developers.cloudflare.com/workers-vpc/) tunnel for provider egress. Install Go 1.25 or newer, [mise](https://mise.jdx.dev/), and Wrangler 4, then run `mise install` and `wrangler login`. The account, namespace, and tunnel IDs checked into `wrangler.toml` belong to the maintainer deployment and must be replaced for another Cloudflare account.
 
-```bash
-wrangler kv namespace create ANTIGRAVITY_OAUTH_PROXY_KV
-wrangler deploy
-wrangler secret put ADMIN_API_KEY
-```
+1. Create a tunnel in **Cloudflare Dashboard > Workers VPC > Tunnels** and run `cloudflared` on a machine with normal Internet access.
+2. Create a KV namespace with `wrangler kv namespace create ANTIGRAVITY_OAUTH_PROXY_KV`.
+3. Set your account ID, the returned KV ID, and the tunnel UUID in `wrangler.toml`:
 
-Set the returned KV namespace ID on the `ANTIGRAVITY_AUTH` binding. Set the tunnel UUID on the `ANTIGRAVITY_EGRESS` binding. See Cloudflare's [tunnel setup](https://developers.cloudflare.com/workers-vpc/configuration/tunnel/) and [VPC Networks guide](https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/).
+   ```toml
+   account_id = "<ACCOUNT_ID>"
+   kv_namespaces = [
+     { binding = "ANTIGRAVITY_AUTH", id = "<KV_NAMESPACE_ID>" }
+   ]
+   vpc_networks = [
+     { binding = "ANTIGRAVITY_EGRESS", tunnel_id = "<TUNNEL_ID>", remote = true }
+   ]
+   ```
+
+4. Deploy and set the client-facing key at Wrangler's secure prompt:
+
+   ```bash
+   wrangler deploy
+   wrangler secret put ADMIN_API_KEY
+   ```
+
+5. Optional: add a [Workers Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to `wrangler.toml`. Do not create a CNAME to `workers.dev`:
+
+   ```toml
+   routes = [
+     { pattern = "antigravity.example.com", custom_domain = true }
+   ]
+   ```
+
+   Run `wrangler deploy` again after adding the route. See Cloudflare's [tunnel setup](https://developers.cloudflare.com/workers-vpc/configuration/tunnel/) and [VPC Networks guide](https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/).
 
 ### Authorize Google on Workers
 
