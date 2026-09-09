@@ -116,6 +116,18 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-3.1-flash-image",
 		},
 		{
+			name:          "Gemini 3.5 Flash Lite canonical",
+			model:         "gemini-3.5-flash-lite",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-3.5-flash-lite",
+		},
+		{
+			name:          "Gemini 3.5 Flash Lite off",
+			model:         "gemini-3.5-flash-lite",
+			thinkingLevel: "off",
+			expected:      "gemini-3.5-flash-lite",
+		},
+		{
 			name:          "Gemini 3.7 Flash default",
 			model:         "gemini-3.7-flash",
 			thinkingLevel: "",

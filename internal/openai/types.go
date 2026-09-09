@@ -2,12 +2,14 @@ package openai
 
 // ChatCompletionRequest represents a request payload for OpenAI-compatible chat completion endpoints.
 type ChatCompletionRequest struct {
-	MaxTokens   int       `json:"max_tokens"`
-	Messages    []Message `json:"messages"`
-	Model       string    `json:"model"`
-	Stream      bool      `json:"stream"`
-	Temperature float64   `json:"temperature"`
-	Tools       []Tool    `json:"tools,omitempty"`
+	MaxTokens       int       `json:"max_tokens"`
+	Messages        []Message `json:"messages"`
+	Model           string    `json:"model"`
+	Stream          bool      `json:"stream"`
+	Temperature     float64   `json:"temperature"`
+	Tools           []Tool    `json:"tools,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
+	ThinkingBudget  *int      `json:"thinking_budget,omitempty"`
 }
 
 // Message represents a message in the chat history, including tool calls/results.

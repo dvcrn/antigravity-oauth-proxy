@@ -223,6 +223,87 @@ func TestPrepareAntigravityRequestPreservesThinkingConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareAntigravityRequestThinkingDisabled(t *testing.T) {
+	t.Run("zero budget preserves zero budget and disables thoughts", func(t *testing.T) {
+		zero := 0
+		req := &GenerateContentRequest{
+			Model: "gemini-3.8-flash-tiered",
+			Request: GeminiInternalRequest{
+				Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+				GenerationConfig: &GeminiGenerationConfig{
+					ThinkingConfig: &ThinkingConfig{
+						ThinkingBudget: &zero,
+					},
+				},
+			},
+		}
+
+		prepareAntigravityRequest(req)
+
+		tc := req.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 0 {
+			t.Fatalf("ThinkingBudget = %v, want 0", tc.ThinkingBudget)
+		}
+		if tc.IncludeThoughts == nil || *tc.IncludeThoughts {
+			t.Fatalf("IncludeThoughts = %v, want false", tc.IncludeThoughts)
+		}
+	})
+
+	t.Run("none thinkingLevel converts to zero budget on 3.8 flash", func(t *testing.T) {
+		req := &GenerateContentRequest{
+			Model: "gemini-3.8-flash-tiered",
+			Request: GeminiInternalRequest{
+				Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+				GenerationConfig: &GeminiGenerationConfig{
+					ThinkingConfig: &ThinkingConfig{
+						ThinkingLevel: "none",
+					},
+				},
+			},
+		}
+
+		prepareAntigravityRequest(req)
+
+		tc := req.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 0 {
+			t.Fatalf("ThinkingBudget = %v, want 0", tc.ThinkingBudget)
+		}
+		if tc.IncludeThoughts == nil || *tc.IncludeThoughts {
+			t.Fatalf("IncludeThoughts = %v, want false", tc.IncludeThoughts)
+		}
+		if tc.ThinkingLevel != "" {
+			t.Fatalf("ThinkingLevel = %q, want empty", tc.ThinkingLevel)
+		}
+	})
+
+	t.Run("off thinkingLevel converts to UNSPECIFIED on flash-lite", func(t *testing.T) {
+		req := &GenerateContentRequest{
+			Model: "gemini-3.5-flash-lite",
+			Request: GeminiInternalRequest{
+				Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
+				GenerationConfig: &GeminiGenerationConfig{
+					ThinkingConfig: &ThinkingConfig{
+						ThinkingLevel: "off",
+					},
+				},
+			},
+		}
+
+		prepareAntigravityRequest(req)
+
+		tc := req.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingLevel != "THINKING_LEVEL_UNSPECIFIED" {
+			t.Fatalf("ThinkingLevel = %q, want THINKING_LEVEL_UNSPECIFIED", tc.ThinkingLevel)
+		}
+		if tc.ThinkingBudget != nil {
+			t.Fatalf("ThinkingBudget = %v, want nil", tc.ThinkingBudget)
+		}
+		if tc.IncludeThoughts == nil || *tc.IncludeThoughts {
+			t.Fatalf("IncludeThoughts = %v, want false", tc.IncludeThoughts)
+		}
+	})
+}
+
 func TestPrepareAntigravityRequestClampsMaxOutputTokens(t *testing.T) {
 	testCases := []struct {
 		model      string

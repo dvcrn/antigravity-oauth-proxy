@@ -158,11 +158,38 @@ func ensureAntigravityThinkingDefaults(req *GenerateContentRequest) {
 	}
 
 	thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
+
+	// If thinkingLevel is explicitly none or off, normalize it based on model family
+	currentLevel := strings.ToLower(strings.TrimSpace(thinkingConfig.ThinkingLevel))
+	isFlashLite := strings.Contains(modelLower, "flash-lite")
+
+	if currentLevel == "none" || currentLevel == "off" {
+		if isFlashLite {
+			thinkingConfig.ThinkingLevel = "THINKING_LEVEL_UNSPECIFIED"
+			thinkingConfig.ThinkingBudget = nil
+		} else {
+			zero := 0
+			thinkingConfig.ThinkingBudget = &zero
+			thinkingConfig.ThinkingLevel = ""
+		}
+	} else if currentLevel == "thinking_level_unspecified" || currentLevel == "unspecified" {
+		thinkingConfig.ThinkingLevel = "THINKING_LEVEL_UNSPECIFIED"
+		thinkingConfig.ThinkingBudget = nil
+	} else if isFlashLite && thinkingConfig.ThinkingBudget != nil && *thinkingConfig.ThinkingBudget == 0 {
+		thinkingConfig.ThinkingLevel = "THINKING_LEVEL_UNSPECIFIED"
+		thinkingConfig.ThinkingBudget = nil
+	}
+
+	// If thinkingBudget is explicitly 0 or thinkingLevel is THINKING_LEVEL_UNSPECIFIED,
+	// thinking is intentionally disabled — do not inject thinkingBudget: 10001.
+	isThinkingDisabled := (thinkingConfig.ThinkingBudget != nil && *thinkingConfig.ThinkingBudget == 0) ||
+		thinkingConfig.ThinkingLevel == "THINKING_LEVEL_UNSPECIFIED"
+
 	if thinkingConfig.IncludeThoughts == nil {
-		includeThoughts := true
+		includeThoughts := !isThinkingDisabled
 		thinkingConfig.IncludeThoughts = &includeThoughts
 	}
-	if thinkingConfig.ThinkingBudget == nil {
+	if thinkingConfig.ThinkingBudget == nil && !isThinkingDisabled {
 		thinkingBudget := 10001
 		thinkingConfig.ThinkingBudget = &thinkingBudget
 	}

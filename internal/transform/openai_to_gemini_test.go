@@ -6,7 +6,90 @@ import (
 	"testing"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 )
+
+func TestToGeminiRequestReasoningEffort(t *testing.T) {
+	t.Run("reasoning_effort none for 3.8 flash", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model:           "gemini-3.8-flash-tiered",
+			ReasoningEffort: "none",
+			Messages:        []openai.Message{{Role: "user", Content: "hi"}},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		if gemReq.Request.GenerationConfig == nil || gemReq.Request.GenerationConfig.ThinkingConfig == nil {
+			t.Fatal("expected ThinkingConfig to be non-nil")
+		}
+		tc := gemReq.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 0 {
+			t.Fatalf("ThinkingBudget = %v, want 0", tc.ThinkingBudget)
+		}
+	})
+
+	t.Run("reasoning_effort off for 3.5 flash lite", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model:           "gemini-3.5-flash-lite",
+			ReasoningEffort: "off",
+			Messages:        []openai.Message{{Role: "user", Content: "hi"}},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		if gemReq.Request.GenerationConfig == nil || gemReq.Request.GenerationConfig.ThinkingConfig == nil {
+			t.Fatal("expected ThinkingConfig to be non-nil")
+		}
+		tc := gemReq.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingLevel != "THINKING_LEVEL_UNSPECIFIED" {
+			t.Fatalf("ThinkingLevel = %q, want THINKING_LEVEL_UNSPECIFIED", tc.ThinkingLevel)
+		}
+		if tc.ThinkingBudget != nil {
+			t.Fatalf("ThinkingBudget = %v, want nil", tc.ThinkingBudget)
+		}
+	})
+
+	t.Run("thinking_budget zero for 3.5 flash lite converts to UNSPECIFIED", func(t *testing.T) {
+		zero := 0
+		req := &openai.ChatCompletionRequest{
+			Model:          "gemini-3.5-flash-lite",
+			ThinkingBudget: &zero,
+			Messages:       []openai.Message{{Role: "user", Content: "hi"}},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		if gemReq.Request.GenerationConfig == nil || gemReq.Request.GenerationConfig.ThinkingConfig == nil {
+			t.Fatal("expected ThinkingConfig to be non-nil")
+		}
+		tc := gemReq.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingLevel != "THINKING_LEVEL_UNSPECIFIED" {
+			t.Fatalf("ThinkingLevel = %q, want THINKING_LEVEL_UNSPECIFIED", tc.ThinkingLevel)
+		}
+		if tc.ThinkingBudget != nil {
+			t.Fatalf("ThinkingBudget = %v, want nil", tc.ThinkingBudget)
+		}
+	})
+
+	t.Run("invalid reasoning_effort returns error", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model:           "gemini-3.8-flash-tiered",
+			ReasoningEffort: "invalid-effort",
+			Messages:        []openai.Message{{Role: "user", Content: "hi"}},
+		}
+
+		_, err := ToGeminiRequest(req, "test-proj")
+		if err == nil {
+			t.Fatal("expected error for invalid reasoning_effort")
+		}
+	})
+}
 
 func TestConvertToGeminiSchema(t *testing.T) {
 	testCases := []struct {

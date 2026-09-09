@@ -41,6 +41,12 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 	}
 
 	thinkingLevel := normalizedThinkingLevel(req)
+	switch thinkingLevel {
+	case "none", "off":
+		thinkingLevel = "none"
+	case "unspecified", "thinking_level_unspecified":
+		thinkingLevel = "unspecified"
+	}
 
 	switch {
 	case isGemini31ProModel(modelLower):
@@ -55,6 +61,8 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 
 	case isGemini38FlashModel(modelLower):
 		switch thinkingLevel {
+		case "none", "unspecified":
+			return modelGemini38FlashTiered
 		case "high":
 			return modelGemini38FlashHigh
 		case "medium":
@@ -67,6 +75,8 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 
 	case isGemini37FlashModel(modelLower):
 		switch thinkingLevel {
+		case "none", "unspecified":
+			return modelGemini37FlashTiered
 		case "high":
 			return modelGemini37FlashHigh
 		case "medium":
@@ -79,6 +89,8 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 
 	case isGemini36FlashModel(modelLower):
 		switch thinkingLevel {
+		case "none", "unspecified":
+			return modelGemini36FlashTiered
 		case "high":
 			return modelGemini36FlashHigh
 		case "medium":
@@ -88,6 +100,12 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 		default:
 			return modelGemini36FlashLow
 		}
+
+	case isGeminiFlashLiteModel(modelLower):
+		if modelLower == "gemini-3.5-flash-lite" {
+			return "gemini-3.5-flash-lite"
+		}
+		return modelGemini31FlashLite
 
 	case isGemini35FlashModel(modelLower):
 		switch thinkingLevel {
@@ -100,9 +118,6 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 		default:
 			return modelGemini35FlashLow
 		}
-
-	case isGemini31FlashLiteModel(modelLower):
-		return modelGemini31FlashLite
 
 	case isGptOssModel(modelLower):
 		return modelGptOss120bMedium
@@ -126,6 +141,7 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		"gemini-2.5-flash-lite",
 		"gemini-2.5-flash-thinking",
 		"gemini-2.5-pro",
+		"gemini-3.5-flash-lite",
 		modelGemini3Flash,
 		modelGemini35FlashHigh,
 		modelGemini31FlashImage,
@@ -190,13 +206,14 @@ func isGemini36FlashModel(modelLower string) bool {
 }
 
 func isGemini35FlashModel(modelLower string) bool {
+	if strings.Contains(modelLower, "flash-lite") {
+		return false
+	}
 	return strings.Contains(modelLower, "3.5-flash") || modelLower == modelGemini35FlashHigh
 }
 
-func isGemini31FlashLiteModel(modelLower string) bool {
-	return strings.Contains(modelLower, "3.1-flash-lite") ||
-		modelLower == "gemini-flash-lite" ||
-		modelLower == "flash-lite"
+func isGeminiFlashLiteModel(modelLower string) bool {
+	return strings.Contains(modelLower, "flash-lite")
 }
 
 func isGptOssModel(modelLower string) bool {
@@ -217,6 +234,16 @@ func applyModelThinkingDefaults(requestedModel string, req *antigravity.GeminiIn
 	if req.GenerationConfig.ThinkingConfig == nil {
 		req.GenerationConfig.ThinkingConfig = &antigravity.ThinkingConfig{}
 	}
+
+	// If thinkingBudget is explicitly 0, or thinkingLevel is disabled/unspecified, do not override with defaults
+	if req.GenerationConfig.ThinkingConfig.ThinkingBudget != nil && *req.GenerationConfig.ThinkingConfig.ThinkingBudget == 0 {
+		return
+	}
+	currentLevel := strings.ToLower(strings.TrimSpace(req.GenerationConfig.ThinkingConfig.ThinkingLevel))
+	if currentLevel == "none" || currentLevel == "off" || currentLevel == "thinking_level_unspecified" || currentLevel == "unspecified" {
+		return
+	}
+
 	if req.GenerationConfig.ThinkingConfig.ThinkingLevel == "" {
 		switch {
 		case strings.Contains(modelLower, "-high"):

@@ -102,7 +102,12 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 	// Check if model exists, if not fallback to default agent model
 	data, err := s.antigravityClient.FetchAvailableModels(r.Context())
 	if err == nil {
-		resolvedModel := resolveModelForThinking(req.Model, antigravity.GeminiInternalRequest{})
+		gemReqPre, errPre := transform.ToGeminiRequest(&req, s.projectID)
+		preReq := antigravity.GeminiInternalRequest{}
+		if errPre == nil && gemReqPre != nil {
+			preReq = gemReqPre.Request
+		}
+		resolvedModel := resolveModelForThinking(req.Model, preReq)
 		if !isKnownUpstreamModelID(resolvedModel) && !isKnownUpstreamModelID(req.Model) {
 			if _, exists := data.Models[req.Model]; !exists {
 				if _, existsResolved := data.Models[resolvedModel]; !existsResolved {

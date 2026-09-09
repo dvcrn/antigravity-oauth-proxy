@@ -16,6 +16,18 @@ func applyGeminiThinkingPreset(req *GenerateContentRequest) {
 		return
 	}
 
+	// If thinkingBudget is explicitly 0, or thinkingLevel is disabled/unspecified, do not override with preset
+	if req.Request.GenerationConfig != nil && req.Request.GenerationConfig.ThinkingConfig != nil {
+		tc := req.Request.GenerationConfig.ThinkingConfig
+		if tc.ThinkingBudget != nil && *tc.ThinkingBudget == 0 {
+			return
+		}
+		curLevel := strings.ToLower(strings.TrimSpace(tc.ThinkingLevel))
+		if curLevel == "none" || curLevel == "off" || curLevel == "thinking_level_unspecified" || curLevel == "unspecified" {
+			return
+		}
+	}
+
 	level := ""
 	switch {
 	case strings.Contains(modelLower, "-low"):

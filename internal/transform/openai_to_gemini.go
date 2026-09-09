@@ -26,10 +26,53 @@ func ToGeminiRequest(openAIReq *openai.ChatCompletionRequest, projectID string) 
 
 	// Handle generation config
 	var genCfg *antigravity.GeminiGenerationConfig
-	if openAIReq.Temperature > 0 || openAIReq.MaxTokens > 0 {
+	if openAIReq.Temperature > 0 || openAIReq.MaxTokens > 0 || openAIReq.ReasoningEffort != "" || openAIReq.ThinkingBudget != nil {
 		genCfg = &antigravity.GeminiGenerationConfig{
 			Temperature:     openAIReq.Temperature,
 			MaxOutputTokens: openAIReq.MaxTokens,
+		}
+
+		// Map reasoning_effort and thinking_budget into Gemini thinkingConfig
+		var thinkingConfig *antigravity.ThinkingConfig
+		isFlashLite := strings.Contains(strings.ToLower(openAIReq.Model), "flash-lite")
+
+		if openAIReq.ThinkingBudget != nil {
+			budget := *openAIReq.ThinkingBudget
+			if budget == 0 && isFlashLite {
+				thinkingConfig = &antigravity.ThinkingConfig{
+					ThinkingLevel: "THINKING_LEVEL_UNSPECIFIED",
+				}
+			} else {
+				thinkingConfig = &antigravity.ThinkingConfig{
+					ThinkingBudget: &budget,
+				}
+			}
+		}
+
+		if openAIReq.ReasoningEffort != "" {
+			if thinkingConfig == nil {
+				thinkingConfig = &antigravity.ThinkingConfig{}
+			}
+			effortLower := strings.ToLower(strings.TrimSpace(openAIReq.ReasoningEffort))
+			switch effortLower {
+			case "none", "off":
+				if isFlashLite {
+					thinkingConfig.ThinkingLevel = "THINKING_LEVEL_UNSPECIFIED"
+					thinkingConfig.ThinkingBudget = nil
+				} else {
+					zero := 0
+					thinkingConfig.ThinkingBudget = &zero
+					thinkingConfig.ThinkingLevel = ""
+				}
+			case "low", "medium", "high":
+				thinkingConfig.ThinkingLevel = strings.ToUpper(effortLower)
+			default:
+				return nil, fmt.Errorf("unsupported reasoning_effort: %q (expected 'none', 'off', 'low', 'medium', or 'high')", openAIReq.ReasoningEffort)
+			}
+		}
+
+		if thinkingConfig != nil {
+			genCfg.ThinkingConfig = thinkingConfig
 		}
 	}
 
