@@ -12,8 +12,16 @@ import (
 type ContentPart struct {
 	Text             string            `json:"text,omitempty"`
 	ThoughtSignature string            `json:"thoughtSignature,omitempty"`
+	InlineData       *InlineData       `json:"inlineData,omitempty"`
+	InlineDataSnake  *InlineData       `json:"inline_data,omitempty"`
 	FunctionCall     *FunctionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *FunctionResponse `json:"functionResponse,omitempty"`
+}
+
+type InlineData struct {
+	MimeType      string `json:"mimeType,omitempty"`
+	MimeTypeSnake string `json:"mime_type,omitempty"`
+	Data          string `json:"data"`
 }
 
 // Content represents a single message in the chat history for Gemini.

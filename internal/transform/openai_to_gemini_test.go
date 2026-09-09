@@ -89,6 +89,82 @@ func TestToGeminiRequestReasoningEffort(t *testing.T) {
 			t.Fatal("expected error for invalid reasoning_effort")
 		}
 	})
+
+	t.Run("converts image_url part with data URI", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model: "gemini-3.8-flash",
+			Messages: []openai.Message{
+				{
+					Role: "user",
+					Content: []interface{}{
+						map[string]interface{}{
+							"type": "text",
+							"text": "What is in this image?",
+						},
+						map[string]interface{}{
+							"type": "image_url",
+							"image_url": map[string]interface{}{
+								"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		if len(gemReq.Request.Contents) != 1 {
+			t.Fatalf("expected 1 content, got %d", len(gemReq.Request.Contents))
+		}
+		parts := gemReq.Request.Contents[0].Parts
+		if len(parts) != 2 {
+			t.Fatalf("expected 2 parts, got %d", len(parts))
+		}
+		if parts[0].Text != "What is in this image?" {
+			t.Errorf("expected text part, got %+v", parts[0])
+		}
+		if parts[1].InlineData == nil {
+			t.Fatalf("expected InlineData on second part, got nil")
+		}
+		if parts[1].InlineData.MimeType != "image/png" {
+			t.Errorf("expected image/png, got %s", parts[1].InlineData.MimeType)
+		}
+		if parts[1].InlineData.Data != "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" {
+			t.Errorf("unexpected image data")
+		}
+	})
+
+	t.Run("converts image_url part with string url", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model: "gemini-3.8-flash",
+			Messages: []openai.Message{
+				{
+					Role: "user",
+					Content: []interface{}{
+						map[string]interface{}{
+							"type":      "image_url",
+							"image_url": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+						},
+					},
+				},
+			},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		parts := gemReq.Request.Contents[0].Parts
+		if len(parts) != 1 || parts[0].InlineData == nil {
+			t.Fatalf("expected 1 inlineData part")
+		}
+		if parts[0].InlineData.MimeType != "image/jpeg" {
+			t.Errorf("expected image/jpeg, got %s", parts[0].InlineData.MimeType)
+		}
+	})
 }
 
 func TestConvertToGeminiSchema(t *testing.T) {

@@ -380,6 +380,18 @@ func sanitizeContents(contents *[]Content) (int, int) {
 
 		parts := make([]ContentPart, 0, len(content.Parts))
 		for _, part := range content.Parts {
+			// Normalize inline_data and mime_type from snake_case if present
+			if part.InlineData == nil && part.InlineDataSnake != nil {
+				part.InlineData = part.InlineDataSnake
+				part.InlineDataSnake = nil
+			}
+			if part.InlineData != nil {
+				if part.InlineData.MimeType == "" && part.InlineData.MimeTypeSnake != "" {
+					part.InlineData.MimeType = part.InlineData.MimeTypeSnake
+				}
+				part.InlineData.MimeTypeSnake = ""
+			}
+
 			if isEmptyContentPart(part) {
 				prunedParts++
 				continue
@@ -400,7 +412,7 @@ func sanitizeContents(contents *[]Content) (int, int) {
 }
 
 func isEmptyContentPart(part ContentPart) bool {
-	if part.FunctionCall != nil || part.FunctionResponse != nil {
+	if part.FunctionCall != nil || part.FunctionResponse != nil || part.InlineData != nil || part.InlineDataSnake != nil {
 		return false
 	}
 	return part.Text == ""

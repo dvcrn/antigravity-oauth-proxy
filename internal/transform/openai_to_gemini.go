@@ -269,12 +269,26 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 				})
 			} else {
 				for _, part := range content {
-					if p, ok := part.(map[string]interface{}); ok && p["type"] == "text" {
-						if txt, ok2 := p["text"].(string); ok2 {
+					p, ok := part.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					partType, _ := p["type"].(string)
+					switch partType {
+					case "text":
+						if txt, ok2 := p["text"].(string); ok2 && txt != "" {
 							parts = append(parts, antigravity.ContentPart{Text: txt})
 						}
+					case "image_url":
+						inlineData, err := parseImageURLPart(p)
+						if err != nil {
+							logger.Get().Warn().Err(err).Msg("Failed to parse image_url part")
+							continue
+						}
+						if inlineData != nil {
+							parts = append(parts, antigravity.ContentPart{InlineData: inlineData})
+						}
 					}
-					// TODO: Handle other part types like images
 				}
 			}
 		default:
@@ -389,4 +403,52 @@ func convertToolsToGeminiTools(tools []openai.Tool) []antigravity.Tool {
 // into the strongly-typed GeminiParameterSchema struct, only mapping supported fields.
 func convertToGeminiSchema(input map[string]interface{}) *antigravity.GeminiParameterSchema {
 	return antigravity.ConvertSchema(input)
+}
+
+func parseImageURLPart(part map[string]interface{}) (*antigravity.InlineData, error) {
+	imgURLObj, ok := part["image_url"]
+	if !ok {
+		return nil, fmt.Errorf("missing image_url field")
+	}
+
+	var rawURL string
+	switch u := imgURLObj.(type) {
+	case string:
+		rawURL = u
+	case map[string]interface{}:
+		if val, ok2 := u["url"].(string); ok2 {
+			rawURL = val
+		}
+	}
+
+	if strings.TrimSpace(rawURL) == "" {
+		return nil, fmt.Errorf("empty image url")
+	}
+
+	// Data URI format: data:[<mediatype>][;base64],<data>
+	if strings.HasPrefix(rawURL, "data:") {
+		parts := strings.SplitN(rawURL[5:], ",", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid data URI format")
+		}
+
+		metadata := parts[0]
+		data := parts[1]
+
+		mimeType := "image/jpeg"
+		if semi := strings.Index(metadata, ";"); semi != -1 {
+			if mediaType := strings.TrimSpace(metadata[:semi]); mediaType != "" {
+				mimeType = mediaType
+			}
+		} else if strings.TrimSpace(metadata) != "" {
+			mimeType = strings.TrimSpace(metadata)
+		}
+
+		return &antigravity.InlineData{
+			MimeType: mimeType,
+			Data:     data,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported image url scheme (only data: URIs currently supported)")
 }
