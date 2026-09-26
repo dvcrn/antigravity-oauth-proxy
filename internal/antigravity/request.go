@@ -193,11 +193,30 @@ func ensureAntigravityThinkingDefaults(req *GenerateContentRequest) {
 		thinkingBudget := 10001
 		thinkingConfig.ThinkingBudget = &thinkingBudget
 	}
+
+	// Claude rejects output limits that do not exceed an enabled thinking budget.
+	if strings.Contains(modelLower, "claude") && thinkingConfig.ThinkingBudget != nil && *thinkingConfig.ThinkingBudget > 0 {
+		limit := maxAllowedOutputTokens(req.Model)
+		if *thinkingConfig.ThinkingBudget >= limit {
+			budget := limit - 1
+			thinkingConfig.ThinkingBudget = &budget
+		}
+		if req.Request.GenerationConfig.MaxOutputTokens <= *thinkingConfig.ThinkingBudget {
+			maxOutputTokens := *thinkingConfig.ThinkingBudget * 2
+			if maxOutputTokens > limit {
+				maxOutputTokens = limit
+			}
+			req.Request.GenerationConfig.MaxOutputTokens = maxOutputTokens
+		}
+	}
 }
 
 func maxAllowedOutputTokens(model string) int {
 	modelLower := strings.ToLower(strings.TrimSpace(model))
 	switch {
+	case strings.Contains(modelLower, "claude-opus-4-6"):
+		// CloudCode rejects Opus 4.6 output limits above 128000.
+		return 128000
 	case strings.Contains(modelLower, "flash-lite") || strings.Contains(modelLower, "flash-image"):
 		return 32768
 	case strings.Contains(modelLower, "3.1-pro-low"):

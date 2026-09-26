@@ -81,6 +81,61 @@ func TestPrepareAntigravityRequestDefaultsThinkingConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareAntigravityRequestClaudeThinkingOutputLimit(t *testing.T) {
+	t.Run("omitted generation config", func(t *testing.T) {
+		req := &GenerateContentRequest{Model: "claude-opus-4-6-thinking"}
+		prepareAntigravityRequest(req)
+		if got := req.Request.GenerationConfig.MaxOutputTokens; got != 20002 {
+			t.Fatalf("MaxOutputTokens = %d, want 20002", got)
+		}
+	})
+
+	testCases := []struct {
+		name       string
+		model      string
+		maxTokens  int
+		budget     int
+		wantTokens int
+		wantBudget int
+	}{
+		{"omitted max tokens", "claude-opus-4-6-thinking", 0, 0, 20002, 10001},
+		{"max tokens below default budget", "claude-opus-4-6-thinking", 1000, 0, 20002, 10001},
+		{"max tokens equal to default budget", "claude-opus-4-6-thinking", 10001, 0, 20002, 10001},
+		{"valid max tokens", "claude-opus-4-6-thinking", 12000, 0, 12000, 10001},
+		{"custom budget", "claude-sonnet-4-6-thinking", 1000, 1500, 3000, 1500},
+		{"sonnet explicit output limit", "claude-sonnet-4-6", 50000, 0, 50000, 10001},
+		{"opus explicit output limit", "claude-opus-4-6-thinking", 128000, 0, 128000, 10001},
+		{"opus output above model limit", "claude-opus-4-6-thinking", 130000, 0, 128000, 10001},
+		{"custom budget above 32k", "claude-opus-4-6-thinking", 0, 20000, 40000, 20000},
+		{"custom budget near model limit", "claude-opus-4-6-thinking", 0, 70000, 128000, 70000},
+		{"budget above model limit", "claude-opus-4-6-thinking", 0, 140000, 128000, 127999},
+		{"gemini unchanged", "gemini-3.1-pro-low", 0, 0, 0, 10001},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &GenerateContentRequest{
+				Model: tc.model,
+				Request: GeminiInternalRequest{
+					GenerationConfig: &GeminiGenerationConfig{MaxOutputTokens: tc.maxTokens},
+				},
+			}
+			if tc.budget > 0 {
+				req.Request.GenerationConfig.ThinkingConfig = &ThinkingConfig{ThinkingBudget: &tc.budget}
+			}
+
+			prepareAntigravityRequest(req)
+
+			if got := req.Request.GenerationConfig.MaxOutputTokens; got != tc.wantTokens {
+				t.Fatalf("MaxOutputTokens = %d, want %d", got, tc.wantTokens)
+			}
+			if got := *req.Request.GenerationConfig.ThinkingConfig.ThinkingBudget; got != tc.wantBudget {
+				t.Fatalf("ThinkingBudget = %d, want %d", got, tc.wantBudget)
+			}
+		})
+	}
+}
+
 func TestPrepareAntigravityRequestClearsThinkingLevelForEncodedModel(t *testing.T) {
 	testModels := []string{
 		"gemini-3.1-pro-high",
