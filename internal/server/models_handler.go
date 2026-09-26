@@ -11,11 +11,16 @@ import (
 )
 
 type openAIModel struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
-	Name    string `json:"name,omitempty"`
+	ID                 string `json:"id"`
+	Object             string `json:"object"`
+	Created            int64  `json:"created"`
+	OwnedBy            string `json:"owned_by"`
+	Name               string `json:"name"`
+	Vendor             string `json:"vendor"`
+	Version            string `json:"version"`
+	ModelPickerEnabled bool   `json:"model_picker_enabled"`
+	Preview            bool   `json:"preview"`
+	Capabilities       any    `json:"capabilities"`
 }
 
 type openAIModelsListResponse struct {
@@ -104,12 +109,20 @@ func newOpenAIModel(modelID, family string, created int64) openAIModel {
 	if family == "claude" {
 		ownedBy = "anthropic"
 	}
+	vendor := ownedBy
+	if family == "gpt" {
+		vendor = "openai"
+	}
 	return openAIModel{
-		ID:      modelID,
-		Object:  "model",
-		Created: created,
-		OwnedBy: ownedBy,
-		Name:    modelID,
+		ID:                 modelID,
+		Object:             "model",
+		Created:            created,
+		OwnedBy:            ownedBy,
+		Name:               modelID,
+		Vendor:             vendor,
+		Version:            modelID,
+		ModelPickerEnabled: true,
+		Preview:            false,
 	}
 }
 

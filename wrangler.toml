@@ -1,5 +1,5 @@
 name = "antigravity-oauth-proxy"
-main = "build/worker.mjs"
+main = "scripts/worker.mjs"
 compatibility_date = "2026-09-07"
 account_id = "02c07a2514d9a25f58c78a180bb8c6f3"
 workers_dev = true

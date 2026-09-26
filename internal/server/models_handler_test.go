@@ -57,6 +57,24 @@ func TestNewOpenAIModelNameIsModelID(t *testing.T) {
 	}
 }
 
+func TestNewOpenAIModelPickerFields(t *testing.T) {
+	for _, tc := range []struct {
+		id     string
+		vendor string
+	}{
+		{"claude-sonnet-4-6", "anthropic"},
+		{"gemini-3.1-pro-high", "google"},
+		{"gpt-oss-120b-medium", "openai"},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			model := newOpenAIModel(tc.id, modelFamily(tc.id), 0)
+			if !model.ModelPickerEnabled || model.Vendor != tc.vendor || model.Version != tc.id {
+				t.Errorf("model picker fields for %q: %+v", tc.id, model)
+			}
+		})
+	}
+}
+
 func TestNewOpenAIModelOwnedBy(t *testing.T) {
 	testCases := []struct {
 		modelID string

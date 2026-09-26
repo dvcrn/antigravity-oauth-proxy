@@ -6,11 +6,15 @@ import "github.com/syumai/workers/cloudflare"
 
 // Get retrieves an environment variable from Cloudflare Workers environment
 func Get(key string) (string, bool) {
-	value := cloudflare.Getenv(key)
-	if value == "" {
+	value := cloudflare.GetBinding(key)
+	if value.IsUndefined() || value.IsNull() {
 		return "", false
 	}
-	return value, true
+	text := value.String()
+	if text == "" {
+		return "", false
+	}
+	return text, true
 }
 
 // GetOrDefault retrieves an environment variable with a default value
