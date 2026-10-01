@@ -50,7 +50,16 @@ type GeminiParameterSchema struct {
 type FunctionCall struct {
 	ID   string                 `json:"id,omitempty"`
 	Name string                 `json:"name,omitempty"`
-	Args map[string]interface{} `json:"args,omitempty"`
+	Args map[string]interface{} `json:"args"`
+}
+
+func (f FunctionCall) MarshalJSON() ([]byte, error) {
+	type alias FunctionCall
+	if f.Args == nil {
+		// Anthropic tool input must be an object even for zero-parameter tools.
+		f.Args = map[string]interface{}{}
+	}
+	return json.Marshal(alias(f))
 }
 
 // FunctionResponse represents the tool result returned by the client.

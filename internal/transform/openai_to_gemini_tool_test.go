@@ -1,12 +1,58 @@
 package transform
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestToolHistorySerializesEmptyArguments(t *testing.T) {
+	for _, model := range []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gemini-3.1-pro-low"} {
+		for _, arguments := range []string{`{}`, `null`, ``, `invalid`, `{"limit":3}`} {
+			t.Run(model+"/"+arguments, func(t *testing.T) {
+				req := &openai.ChatCompletionRequest{
+					Model: model,
+					Messages: []openai.Message{
+						{Role: "user", Content: "Get stats"},
+						{Role: "assistant", ToolCalls: []openai.OpenAIToolCall{{
+							ID: "call_1|signature", Type: "function",
+							Function: openai.OpenAIFunctionCall{Name: "stats", Arguments: arguments},
+						}}},
+						{Role: "tool", ToolCallID: "call_1|signature", Content: ""},
+					},
+				}
+				got, err := ToGeminiRequest(req, "test-project")
+				require.NoError(t, err)
+				encoded, err := json.Marshal(got)
+				require.NoError(t, err)
+				var wire struct {
+					Request struct {
+						Contents []struct {
+							Parts []map[string]interface{} `json:"parts"`
+						} `json:"contents"`
+					} `json:"request"`
+				}
+				require.NoError(t, json.Unmarshal(encoded, &wire))
+				require.Len(t, wire.Request.Contents, 3)
+				call := wire.Request.Contents[1].Parts[0]["functionCall"].(map[string]interface{})
+				wantArgs := map[string]interface{}{}
+				if arguments == `{"limit":3}` {
+					wantArgs["limit"] = float64(3)
+				}
+				require.Equal(t, wantArgs, call["args"])
+				require.Equal(t, "call_1", call["id"])
+				require.Equal(t, "signature", wire.Request.Contents[1].Parts[0]["thoughtSignature"])
+				result := wire.Request.Contents[2].Parts[0]["functionResponse"].(map[string]interface{})
+				require.Equal(t, "call_1", result["id"])
+				require.Equal(t, "stats", result["name"])
+				require.Equal(t, map[string]interface{}{"output": ""}, result["response"])
+			})
+		}
+	}
+}
 
 // Ensures tool responses (role: "tool") without an explicit name populate
 // FunctionResponse.Name by resolving the assistant's tool_calls via tool_call_id.
