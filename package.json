@@ -1,6 +1,6 @@
 {
   "dependencies": {
     "@dvcrn/antigravity-proxy": "^1.1.0",
-    "wrangler": "^4.131.0"
+    "wrangler": "^4.143.1"
   }
 }
