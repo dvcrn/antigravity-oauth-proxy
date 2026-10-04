@@ -2,12 +2,32 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/openai"
 )
+
+func TestOpenAIChatCompletionsRejectsRemovedModels(t *testing.T) {
+	for _, model := range []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"} {
+		for _, stream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/stream=%t", model, stream), func(t *testing.T) {
+				t.Parallel()
+				body := fmt.Sprintf(`{"model":%q,"stream":%t,"messages":[{"role":"user","content":"hello"}]}`, model, stream)
+				req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+				rec := httptest.NewRecorder()
+				(&Server{}).openAIChatCompletionsHandler(rec, req)
+				if rec.Code != http.StatusGone || !strings.Contains(rec.Body.String(), model) {
+					t.Fatalf("expected removed-model error, got HTTP %d: %s", rec.Code, rec.Body.String())
+				}
+			})
+		}
+	}
+}
 
 func TestNonStreamingAssistantMessageToolCalls(t *testing.T) {
 	response := &antigravity.GenerateContentResponse{Response: map[string]interface{}{

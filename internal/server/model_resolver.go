@@ -28,7 +28,6 @@ const (
 	modelGemini38FlashTiered  = "gemini-3.8-flash-tiered"
 	modelGemini31FlashLite    = "gemini-3.1-flash-lite"
 	modelGemini31FlashImage   = "gemini-3.1-flash-image"
-	modelGptOss120bMedium     = "gpt-oss-120b-medium"
 )
 
 func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest) string {
@@ -119,9 +118,6 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 			return modelGemini35FlashLow
 		}
 
-	case isGptOssModel(modelLower):
-		return modelGptOss120bMedium
-
 	case modelLower == modelGemini31FlashImage:
 		return modelGemini31FlashImage
 
@@ -135,9 +131,7 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 
 func isKnownUpstreamModelID(modelLower string) bool {
 	switch modelLower {
-	case "claude-opus-4-6-thinking",
-		"claude-sonnet-4-6",
-		"gemini-2.5-flash",
+	case "gemini-2.5-flash",
 		"gemini-2.5-flash-lite",
 		"gemini-2.5-flash-thinking",
 		"gemini-2.5-pro",
@@ -162,8 +156,7 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini38FlashMedium,
 		modelGemini38FlashLow,
 		modelGemini38FlashTiered,
-		modelGemini31ProHighAgent,
-		modelGptOss120bMedium:
+		modelGemini31ProHighAgent:
 		return true
 	default:
 		return false
@@ -214,10 +207,6 @@ func isGemini35FlashModel(modelLower string) bool {
 
 func isGeminiFlashLiteModel(modelLower string) bool {
 	return strings.Contains(modelLower, "flash-lite")
-}
-
-func isGptOssModel(modelLower string) bool {
-	return strings.Contains(modelLower, "gpt-oss")
 }
 
 func applyModelThinkingDefaults(requestedModel string, req *antigravity.GeminiInternalRequest) {

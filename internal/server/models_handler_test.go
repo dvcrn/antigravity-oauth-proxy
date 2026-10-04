@@ -1,8 +1,63 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 )
+
+func TestModelListingsExcludeRemovedModels(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"defaultAgentModelId":"claude-opus-4-6-thinking","models":{
+			"claude-sonnet-4-6":{},"claude-opus-4-6-thinking":{},"gpt-oss-120b-medium":{},
+			"claude-sonnet-5-5":{},"claude-opus-5-5":{},"gemini-3.8-flash-low":{}}}`))
+	}))
+	defer upstream.Close()
+	previousEndpoints := antigravity.Endpoints
+	antigravity.Endpoints = []string{upstream.URL}
+	t.Cleanup(func() { antigravity.Endpoints = previousEndpoints })
+	srv := newMCPTestServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.modelsHandler(rec, httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+	var listing openAIModelsListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &listing); err != nil {
+		t.Fatal(err)
+	}
+	wantIDs := []string{"claude-opus-5-5", "claude-sonnet-5-5", "gemini-3.8-flash-low"}
+	if rec.Code != http.StatusOK || len(listing.Data) != len(wantIDs) {
+		t.Fatalf("unexpected model list: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+	for i, model := range listing.Data {
+		if model.ID != wantIDs[i] {
+			t.Errorf("model %d = %q, want %q", i, model.ID, wantIDs[i])
+		}
+	}
+	for _, model := range []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"} {
+		rec := httptest.NewRecorder()
+		srv.modelsHandler(rec, httptest.NewRequest(http.MethodGet, "/v1/models/"+model, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("removed model %q returned HTTP %d", model, rec.Code)
+		}
+	}
+	mcpListing, err := srv.mcpAskGeminiModels(context.Background(), askGeminiModelsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mcpListing.DefaultModel != "" || len(mcpListing.Models) != len(wantIDs) {
+		t.Fatalf("unexpected MCP model list: %+v", mcpListing)
+	}
+	for i, model := range mcpListing.Models {
+		if model.ID != wantIDs[i] {
+			t.Errorf("MCP model %d = %q, want %q", i, model.ID, wantIDs[i])
+		}
+	}
+}
 
 func TestIsSupportedModel(t *testing.T) {
 	testCases := []struct {
@@ -15,9 +70,16 @@ func TestIsSupportedModel(t *testing.T) {
 		{"gemini-3.6-flash-low", true, "gemini"},
 		{"gemini-3.1-pro-low", true, "gemini"},
 		{"gemini-pro-agent", true, "gemini"},
-		{"claude-sonnet-4-6", true, "claude"},
-		{"claude-opus-4-6-thinking", true, "claude"},
-		{"gpt-oss-120b-medium", true, "gpt"},
+		{"claude-sonnet-4-6", false, "claude"},
+		{"claude-sonnet-4-6-thinking", false, "claude"},
+		{"claude-opus-4-6", false, "claude"},
+		{"claude-opus-4-6-thinking", false, "claude"},
+		{"gpt-oss-120b", false, "gpt"},
+		{"gpt-oss-120b-medium", false, "gpt"},
+		{" CLAUDE-OPUS-4-6-THINKING ", false, "claude"},
+		{"claude-sonnet-5-5", true, "claude"},
+		{"claude-opus-5-5", true, "claude"},
+		{"claude-sonnet-4-60", true, "claude"},
 		{"openai-gpt-4o", true, "gpt"},
 		{"chat_20706", false, "unknown"},
 		{"tab_jump_flash_lite_preview", false, "unknown"},
@@ -62,9 +124,9 @@ func TestNewOpenAIModelPickerFields(t *testing.T) {
 		id     string
 		vendor string
 	}{
-		{"claude-sonnet-4-6", "anthropic"},
+		{"claude-sonnet-5-5", "anthropic"},
 		{"gemini-3.1-pro-high", "google"},
-		{"gpt-oss-120b-medium", "openai"},
+		{"openai-gpt-4o", "openai"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			model := newOpenAIModel(tc.id, modelFamily(tc.id), 0)
@@ -80,8 +142,8 @@ func TestNewOpenAIModelOwnedBy(t *testing.T) {
 		modelID string
 		ownedBy string
 	}{
-		{"claude-opus-4-6-thinking", "anthropic"},
-		{"claude-sonnet-4-6", "anthropic"},
+		{"claude-opus-5-5", "anthropic"},
+		{"claude-sonnet-5-5", "anthropic"},
 		{"gemini-3.1-flash-lite", "google"},
 		{"gemini-2.5-pro", "google"},
 	}

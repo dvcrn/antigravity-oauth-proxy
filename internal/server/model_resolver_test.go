@@ -206,16 +206,16 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-3.6-flash-tiered",
 		},
 		{
-			name:          "GPT-OSS 120B generic",
-			model:         "gpt-oss-120b",
-			thinkingLevel: "",
-			expected:      "gpt-oss-120b-medium",
+			name:          "Claude Sonnet 5.5 passes through",
+			model:         "claude-sonnet-5-5",
+			thinkingLevel: "HIGH",
+			expected:      "claude-sonnet-5-5",
 		},
 		{
-			name:          "GPT-OSS 120B medium direct match",
-			model:         "gpt-oss-120b-medium",
+			name:          "Claude Opus 5.5 passes through",
+			model:         "claude-opus-5-5",
 			thinkingLevel: "HIGH",
-			expected:      "gpt-oss-120b-medium",
+			expected:      "claude-opus-5-5",
 		},
 		{
 			name:          "Unknown model passes through",

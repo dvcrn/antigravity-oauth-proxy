@@ -77,6 +77,8 @@ The codebase supports two deployment modes:
 
 ## Important Patterns
 
+- Model availability is account-specific. Use the authenticated upstream catalog rather than display names to check access.
+- `isRemovedModel` excludes Claude 4.6 and GPT-OSS-120B from REST/MCP listings, generation, and default-model fallback. Keep these checks aligned when changing model policy.
 - All logging uses zerolog (`internal/logger`) with structured logging
 - Environment variables handled through `internal/env` abstraction
 - Credential providers implement common interface for different storage backends

@@ -94,6 +94,12 @@ An OpenCode provider using the native Gemini protocol looks like this:
 
 Query `GET /v1/models` to see the models available to the signed-in account.
 
+Claude Sonnet 4.6, Claude Opus 4.6, and GPT-OSS-120B are excluded from this proxy,
+even while upstream still offers them. Requests for these models return HTTP 410
+(or an MCP tool error), without falling back to another model. Claude 5.5 models
+appear when upstream enables them for the account; Google requires a paid,
+non-trial Pro or Ultra subscription.
+
 ## Authentication
 
 The OAuth helper opens a Google sign-in flow and saves an access token and refresh token. The proxy reads that file and refreshes expired access tokens automatically.

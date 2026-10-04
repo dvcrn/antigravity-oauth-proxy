@@ -110,6 +110,9 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 	if requestedModel == "" {
 		return askGeminiOutput{}, fmt.Errorf("model is required; call ask_gemini_models to list available models")
 	}
+	if isRemovedModel(requestedModel) {
+		return askGeminiOutput{}, fmt.Errorf("model has been removed from this proxy: %s", requestedModel)
+	}
 
 	request := antigravity.GeminiInternalRequest{
 		Contents: []antigravity.Content{{
@@ -193,8 +196,12 @@ func (s *Server) mcpAskGeminiModels(ctx context.Context, _ askGeminiModelsInput)
 		return models[i].ID < models[j].ID
 	})
 
+	defaultModel := data.DefaultAgentModelID
+	if isRemovedModel(defaultModel) {
+		defaultModel = ""
+	}
 	return askGeminiModelsOutput{
-		DefaultModel: data.DefaultAgentModelID,
+		DefaultModel: defaultModel,
 		Models:       models,
 	}, nil
 }

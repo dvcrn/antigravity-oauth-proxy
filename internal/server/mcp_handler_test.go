@@ -134,7 +134,7 @@ func TestMCPToolsList(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{"model", "prompt"}, schema["required"])
 }
 
-func TestMCPAskGeminiRejectsBlankInput(t *testing.T) {
+func TestMCPAskGeminiRejectsInvalidInput(t *testing.T) {
 	srv := newMCPTestServer(t)
 
 	testCases := []struct {
@@ -151,6 +151,21 @@ func TestMCPAskGeminiRejectsBlankInput(t *testing.T) {
 			name:        "blank model",
 			args:        map[string]interface{}{"model": "  ", "prompt": "hello"},
 			wantMessage: "model is required",
+		},
+		{
+			name:        "removed sonnet",
+			args:        map[string]interface{}{"model": "claude-sonnet-4-6", "prompt": "hello"},
+			wantMessage: "model has been removed from this proxy",
+		},
+		{
+			name:        "removed opus",
+			args:        map[string]interface{}{"model": "claude-opus-4-6-thinking", "prompt": "hello"},
+			wantMessage: "model has been removed from this proxy",
+		},
+		{
+			name:        "removed gpt oss",
+			args:        map[string]interface{}{"model": "gpt-oss-120b-medium", "prompt": "hello"},
+			wantMessage: "model has been removed from this proxy",
 		},
 	}
 

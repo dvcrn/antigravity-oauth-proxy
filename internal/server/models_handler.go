@@ -56,7 +56,7 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 	models := make([]openAIModel, 0, len(data.Models))
 	for modelID := range data.Models {
 		family := modelFamily(modelID)
-		if !isSupportedFamily(family) {
+		if !isSupportedModel(modelID) {
 			continue
 		}
 		models = append(models, newOpenAIModel(modelID, family, created))
@@ -127,7 +127,17 @@ func newOpenAIModel(modelID, family string, created int64) openAIModel {
 }
 
 func isSupportedModel(modelID string) bool {
-	return isSupportedFamily(modelFamily(modelID))
+	return !isRemovedModel(modelID) && isSupportedFamily(modelFamily(modelID))
+}
+
+func isRemovedModel(modelID string) bool {
+	modelID = strings.ToLower(strings.TrimSpace(modelID))
+	for _, removed := range []string{"claude-sonnet-4-6", "claude-opus-4-6", "gpt-oss-120b"} {
+		if modelID == removed || strings.HasPrefix(modelID, removed+"-") {
+			return true
+		}
+	}
+	return false
 }
 
 func isSupportedFamily(family string) bool {

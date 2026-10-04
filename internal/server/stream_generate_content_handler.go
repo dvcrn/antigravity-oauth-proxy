@@ -43,6 +43,11 @@ func (s *Server) streamGenerateContentHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if isRemovedModel(model) {
+		writeAPIError(w, http.StatusGone, "Model has been removed from this proxy: "+model)
+		return
+	}
+
 	switch action {
 	case "streamGenerateContent":
 		s.handleStreamGenerateContent(w, r, normalizedModel)

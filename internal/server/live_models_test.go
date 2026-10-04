@@ -23,7 +23,7 @@ func TestLiveModelToolRoundTrip(t *testing.T) {
 	key := os.Getenv("PROXY_TEST_API_KEY")
 	require.NotEmpty(t, baseURL, "set PROXY_TEST_URL to the proxy under test")
 	require.NotEmpty(t, key, "set PROXY_TEST_API_KEY to its admin key")
-	models := []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gemini-2.5-flash"}
+	models := []string{"gemini-3.8-flash-low"}
 	if configured := os.Getenv("PROXY_TEST_MODELS"); configured != "" {
 		models = strings.Split(configured, ",")
 	}

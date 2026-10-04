@@ -43,7 +43,11 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Request overview
+	if isRemovedModel(req.Model) {
+		writeAPIError(w, http.StatusGone, "Model has been removed from this proxy: "+req.Model)
+		return
+	}
+
 	logger.Get().Info().
 		Str("requested_model", req.Model).
 		Bool("stream", req.Stream).
@@ -116,7 +120,7 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 					if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
 						fallbackModel = "gemini-3.7-flash-high"
 					}
-					if data.DefaultAgentModelID != "" {
+					if data.DefaultAgentModelID != "" && !isRemovedModel(data.DefaultAgentModelID) {
 						if _, existsDefault := data.Models[data.DefaultAgentModelID]; existsDefault {
 							fallbackModel = data.DefaultAgentModelID
 						}
