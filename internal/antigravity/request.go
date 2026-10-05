@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -254,7 +255,7 @@ func buildAntigravitySystemInstruction(existing *SystemInstruction) *SystemInstr
 	if existing != nil {
 		for _, part := range existing.Parts {
 			if part.Text != "" {
-				parts = append(parts, ContentPart{Text: part.Text})
+				parts = append(parts, ContentPart{Text: replaceClientNames(part.Text)})
 			}
 		}
 	}
@@ -263,6 +264,18 @@ func buildAntigravitySystemInstruction(existing *SystemInstruction) *SystemInstr
 		Role:  "user",
 		Parts: parts,
 	}
+}
+
+// clientNames matches other coding clients' names as whole words in any
+// case, so "Roo" leaves "Root" alone and "Pi" leaves "Pipeline" alone. Longer
+// names come first so "GitHub Copilot", "Grok Build" and "Oh My Pi" are
+// replaced as one name.
+var clientNames = regexp.MustCompile(`(?i)\b(?:Claude Code|GitHub Copilot|Copilot|Open Code|OpenCode|Grok Build|Grok|Kilo Code|Qwen Code|Gemini CLI|Windsurf|Cascade|Aider|Codex|Kiro|Trae|Junie|Augment|Cody|Zed|Cline|Roo|Cursor|Microsoft|Oh[- ]My[- ]Pi|Pi)\b`)
+
+// replaceClientNames swaps other clients' names in client-provided system
+// instructions for Antigravity.
+func replaceClientNames(input string) string {
+	return clientNames.ReplaceAllString(input, "Antigravity")
 }
 
 func newAntigravityRequestID() string {

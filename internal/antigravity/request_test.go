@@ -59,6 +59,30 @@ func TestPrepareAntigravityRequestMatchesCLIShape(t *testing.T) {
 	}
 }
 
+func TestPrepareAntigravityRequestMasksClientNamesInSystemInstruction(t *testing.T) {
+	req := &GenerateContentRequest{
+		Request: GeminiInternalRequest{
+			Contents: []Content{{
+				Role:  "user",
+				Parts: []ContentPart{{Text: "Is OpenCode better than Cursor?"}},
+			}},
+			SystemInstruction: &SystemInstruction{
+				Parts: []ContentPart{{Text: "You are opencode, not Claude Code or Oh My Pi. Root Pipeline api"}},
+			},
+		},
+	}
+
+	prepareAntigravityRequest(req)
+
+	parts := req.Request.SystemInstruction.Parts
+	if got, want := parts[1].Text, "You are Antigravity, not Antigravity or Antigravity. Root Pipeline api"; got != want {
+		t.Fatalf("system part = %q, want %q", got, want)
+	}
+	if got := req.Request.Contents[0].Parts[0].Text; got != "Is OpenCode better than Cursor?" {
+		t.Fatalf("user content was rewritten: %q", got)
+	}
+}
+
 func TestPrepareAntigravityRequestDefaultsThinkingConfig(t *testing.T) {
 	req := &GenerateContentRequest{
 		Model: "gemini-3.1-pro-low",
