@@ -42,10 +42,19 @@ func prepareAntigravityRequest(req *GenerateContentRequest) {
 	ensureAntigravityThinkingDefaults(req)
 	clampMaxOutputTokens(req)
 
+	var droppedBuiltIns int
+	req.Request.Tools, droppedBuiltIns = pruneUnsupportedBuiltInTools(req.Request.Tools)
+	if droppedBuiltIns > 0 {
+		logger.Get().Warn().
+			Int("dropped_builtin_tools", droppedBuiltIns).
+			Msg("Dropped built-in tools unsupported by CloudCode")
+	}
+
+	missingNames := missingParameterNames(req.Request.Tools, 6)
 	if missing := fillMissingParameters(req.Request.Tools); missing > 0 {
 		logger.Get().Warn().
 			Int("missing_parameters", missing).
-			Str("missing_names", missingParameterNames(req.Request.Tools, 6)).
+			Str("missing_names", missingNames).
 			Msg("Defaulted missing parameters in request tools")
 	}
 

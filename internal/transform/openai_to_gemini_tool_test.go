@@ -171,3 +171,40 @@ func TestToolResponsesInsertedBeforeAssistantText(t *testing.T) {
 	require.Len(t, finalMsg.Parts, 1)
 	assert.Equal(t, "All done", finalMsg.Parts[0].Text)
 }
+
+func TestConvertToolsToGeminiToolsSupportsBuiltIns(t *testing.T) {
+	req := &openai.ChatCompletionRequest{
+		Model: "gemini-2.5-flash",
+		Messages: []openai.Message{
+			{Role: "user", Content: "What is the weather?"},
+		},
+		Tools: []openai.Tool{
+			{Type: "web_search"},
+			{Type: "url_context"},
+			{Type: "function", Function: openai.Function{Name: "code_execution", Parameters: map[string]interface{}{}}},
+			{
+				Type: "function",
+				Function: openai.Function{
+					Name: "get_weather",
+				},
+			},
+			{
+				Type: "function",
+				Function: openai.Function{
+					Name:       "web_search",
+					Parameters: map[string]interface{}{"type": "object"},
+				},
+			},
+		},
+	}
+
+	got, err := ToGeminiRequest(req, "test-project")
+	require.NoError(t, err)
+	require.Len(t, got.Request.Tools, 4)
+	require.Len(t, got.Request.Tools[0].FunctionDeclarations, 2)
+	assert.Equal(t, "get_weather", got.Request.Tools[0].FunctionDeclarations[0].Name)
+	assert.Equal(t, "web_search", got.Request.Tools[0].FunctionDeclarations[1].Name)
+	assert.NotNil(t, got.Request.Tools[1].GoogleSearch)
+	assert.NotNil(t, got.Request.Tools[2].URLContext)
+	assert.NotNil(t, got.Request.Tools[3].CodeExecution)
+}

@@ -121,8 +121,9 @@ func TestMCPToolsList(t *testing.T) {
 
 	require.Contains(t, tools, "ask_gemini")
 	require.Contains(t, tools, "ask_gemini_models")
+	require.Contains(t, tools, "google_search")
 
-	// Both descriptions must tell the caller the answers come from Antigravity.
+	// All descriptions must tell the caller the answers come from Antigravity.
 	for name, tool := range tools {
 		description, ok := tool["description"].(string)
 		require.True(t, ok, "tool %s has no description", name)
@@ -132,6 +133,10 @@ func TestMCPToolsList(t *testing.T) {
 	schema, ok := tools["ask_gemini"]["inputSchema"].(map[string]interface{})
 	require.True(t, ok)
 	assert.ElementsMatch(t, []interface{}{"model", "prompt"}, schema["required"])
+
+	schema, ok = tools["google_search"]["inputSchema"].(map[string]interface{})
+	require.True(t, ok)
+	assert.ElementsMatch(t, []interface{}{"query"}, schema["required"])
 }
 
 func TestMCPAskGeminiRejectsInvalidInput(t *testing.T) {

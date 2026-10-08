@@ -76,6 +76,8 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 		InputSchema: mcpObjectSchema(map[string]any{}),
 	}, s.mcpAskGeminiModels)
 
+	s.addGoogleSearchTool(srv)
+
 	return srv
 }
 

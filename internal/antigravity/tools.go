@@ -15,22 +15,30 @@ func convertRawTools(raw json.RawMessage) ([]Tool, bool) {
 
 	stats := summarizeRawTools(toolMaps)
 	fns := buildFunctionDeclarations(toolMaps)
-	if len(fns) == 0 {
+	builtIns := extractBuiltInTools(toolMaps)
+	if len(fns) == 0 && len(builtIns) == 0 {
 		if stats.rawCount > 0 {
 			logger.Get().Warn().
 				Int("raw_tools", stats.rawCount).
 				Int("missing_input_schema", stats.missingSchema).
 				Int("missing_name", stats.missingName).
 				Int("custom_tools", stats.customCount).
-				Msg("No function declarations built from raw tools")
+				Msg("No function declarations or built-in tools built from raw tools")
 		}
 		return nil, true
 	}
+
+	var res []Tool
+	if len(fns) > 0 {
+		res = append(res, Tool{FunctionDeclarations: fns})
+	}
+	res = append(res, builtIns...)
 
 	if stats.missingSchema > 0 || stats.missingName > 0 {
 		logger.Get().Warn().
 			Int("raw_tools", stats.rawCount).
 			Int("converted_tools", len(fns)).
+			Int("builtin_tools", len(builtIns)).
 			Int("missing_input_schema", stats.missingSchema).
 			Int("missing_name", stats.missingName).
 			Int("custom_tools", stats.customCount).
@@ -40,12 +48,13 @@ func convertRawTools(raw json.RawMessage) ([]Tool, bool) {
 		logger.Get().Debug().
 			Int("raw_tools", stats.rawCount).
 			Int("converted_tools", len(fns)).
+			Int("builtin_tools", len(builtIns)).
 			Int("custom_tools", stats.customCount).
 			Str("tool_names", stats.previewNames()).
-			Msg("Converted raw tools to function declarations")
+			Msg("Converted raw tools to declarations")
 	}
 
-	return []Tool{{FunctionDeclarations: fns}}, true
+	return res, true
 }
 
 func parseToolMaps(raw json.RawMessage) ([]map[string]interface{}, bool) {
@@ -73,6 +82,9 @@ func buildFunctionDeclarations(items []map[string]interface{}) []FunctionDeclara
 		if name == "" {
 			continue
 		}
+		if _, ok := rawBuiltInTool(item); ok {
+			continue
+		}
 
 		if schema == nil {
 			schema = map[string]interface{}{"type": "object"}
@@ -91,6 +103,16 @@ func buildFunctionDeclarations(items []map[string]interface{}) []FunctionDeclara
 	}
 
 	return fns
+}
+
+func extractBuiltInTools(items []map[string]interface{}) []Tool {
+	var tools []Tool
+	for _, item := range items {
+		if t, ok := rawBuiltInTool(item); ok {
+			tools = append(tools, t)
+		}
+	}
+	return tools
 }
 
 type toolStats struct {
@@ -116,12 +138,15 @@ func summarizeRawTools(items []map[string]interface{}) toolStats {
 	stats := toolStats{rawCount: len(items)}
 	for _, item := range items {
 		name, _, schema := extractToolFields(item)
+		_, isBuiltIn := rawBuiltInTool(item)
 		if name == "" {
-			stats.missingName++
+			if !isBuiltIn {
+				stats.missingName++
+			}
 		} else {
 			stats.names = append(stats.names, name)
 		}
-		if schema == nil {
+		if schema == nil && !isBuiltIn {
 			stats.missingSchema++
 		}
 		if _, ok := item["custom"].(map[string]interface{}); ok {

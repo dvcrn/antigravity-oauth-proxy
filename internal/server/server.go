@@ -15,6 +15,7 @@ import (
 // Server represents the proxy server with its dependencies
 type Server struct {
 	httpClient        serverhttp.HTTPClient
+	redirectClient    serverhttp.HTTPClient
 	provider          credentials.CredentialsProvider
 	projectID         string
 	mux               *http.ServeMux
@@ -34,6 +35,7 @@ func WithGoogleAuth(store GoogleAuthStore) Option {
 func NewServer(provider credentials.CredentialsProvider, projectID string, options ...Option) *Server {
 	s := &Server{
 		httpClient:        serverhttp.NewHTTPClient(),
+		redirectClient:    serverhttp.NewNoRedirectHTTPClient(),
 		provider:          provider,
 		projectID:         projectID,
 		mux:               http.NewServeMux(),

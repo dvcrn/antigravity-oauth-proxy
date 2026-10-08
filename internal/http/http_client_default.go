@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+// NewNoRedirectHTTPClient creates a client that returns redirect responses instead of following them.
+func NewNoRedirectHTTPClient() HTTPClient {
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
 // NewHTTPClient creates a new HTTP client for regular environments
 func NewHTTPClient() HTTPClient {
 	return &http.Client{

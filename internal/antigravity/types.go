@@ -116,44 +116,61 @@ func (f *FunctionDeclaration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Tool represents a collection of function declarations.
+// Tool represents a collection of function declarations or built-in tools.
 type Tool struct {
-	FunctionDeclarations []FunctionDeclaration `json:"functionDeclarations,omitempty"`
+	FunctionDeclarations []FunctionDeclaration  `json:"functionDeclarations,omitempty"`
+	GoogleSearch         map[string]interface{} `json:"googleSearch,omitempty"`
+	URLContext           map[string]interface{} `json:"urlContext,omitempty"`
+	CodeExecution        map[string]interface{} `json:"codeExecution,omitempty"`
 }
 
-// UnmarshalJSON: accept functionDeclarations (camelCase) and function_declarations (snake_case).
-// Enables mixed client payloads without 400s.
-func (t *Tool) UnmarshalJSON(b []byte) error {
-	// Try camelCase first
-	type alias Tool
-	var a alias
-	if err := json.Unmarshal(b, &a); err == nil && len(a.FunctionDeclarations) > 0 {
-		*t = Tool(a)
-		return nil
+// IsEmpty reports whether the tool has no function declarations and no built-in tools.
+func (t Tool) IsEmpty() bool {
+	return len(t.FunctionDeclarations) == 0 &&
+		t.GoogleSearch == nil &&
+		t.URLContext == nil &&
+		t.CodeExecution == nil
+}
+
+// MarshalJSON keeps empty built-in tool objects, which omitempty would drop.
+func (t Tool) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	if len(t.FunctionDeclarations) > 0 {
+		m["functionDeclarations"] = t.FunctionDeclarations
 	}
-	// Fallback to snake_case key function_declarations
+	if t.GoogleSearch != nil {
+		m["googleSearch"] = t.GoogleSearch
+	}
+	if t.URLContext != nil {
+		m["urlContext"] = t.URLContext
+	}
+	if t.CodeExecution != nil {
+		m["codeExecution"] = t.CodeExecution
+	}
+	return json.Marshal(m)
+}
+
+// UnmarshalJSON accepts camelCase and snake_case keys for function declarations and built-in tools.
+func (t *Tool) UnmarshalJSON(b []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	if fdRaw, ok := raw["function_declarations"]; ok {
-		var arr []json.RawMessage
-		if err := json.Unmarshal(fdRaw, &arr); err != nil {
+	fdRaw, ok := raw["functionDeclarations"]
+	if !ok {
+		fdRaw, ok = raw["function_declarations"]
+	}
+	if ok {
+		if err := json.Unmarshal(fdRaw, &t.FunctionDeclarations); err != nil {
 			return err
 		}
-		fds := make([]FunctionDeclaration, 0, len(arr))
-		for _, item := range arr {
-			var fd FunctionDeclaration
-			if err := json.Unmarshal(item, &fd); err != nil {
-				return err
-			}
-			fds = append(fds, fd)
-		}
-		t.FunctionDeclarations = fds
-		return nil
 	}
-	// If neither present, keep empty
-	t.FunctionDeclarations = nil
+
+	var item map[string]interface{}
+	if err := json.Unmarshal(b, &item); err != nil {
+		return err
+	}
+	t.applyBuiltInToolKeys(item)
 	return nil
 }
 
@@ -278,12 +295,13 @@ func (g *GeminiInternalRequest) UnmarshalJSON(b []byte) error {
 	// First, try array of tools
 	var toolsArr []Tool
 	if err := json.Unmarshal(raw.Tools, &toolsArr); err == nil {
-		if hasFunctionDeclarations(toolsArr) {
+		if hasValidTools(toolsArr) {
+			missingNames := missingParameterNames(toolsArr, 6)
 			if missing := fillMissingParameters(toolsArr); missing > 0 {
 				logger.Get().Warn().
 					Int("tools", len(toolsArr)).
 					Int("missing_parameters", missing).
-					Str("missing_names", missingParameterNames(toolsArr, 6)).
+					Str("missing_names", missingNames).
 					Bool("raw_tools_has_custom", rawToolsHasCustom).
 					Bool("raw_tools_has_input_schema", rawToolsHasInputSchema).
 					Str("raw_tools_preview", rawToolsPreview).
@@ -297,13 +315,14 @@ func (g *GeminiInternalRequest) UnmarshalJSON(b []byte) error {
 	// Next, try single tool object
 	var single Tool
 	if err := json.Unmarshal(raw.Tools, &single); err == nil {
-		if len(single.FunctionDeclarations) > 0 {
+		if !single.IsEmpty() {
 			tools := []Tool{single}
+			missingNames := missingParameterNames(tools, 6)
 			if missing := fillMissingParameters(tools); missing > 0 {
 				logger.Get().Warn().
 					Int("tools", len(tools)).
 					Int("missing_parameters", missing).
-					Str("missing_names", missingParameterNames(tools, 6)).
+					Str("missing_names", missingNames).
 					Bool("raw_tools_has_custom", rawToolsHasCustom).
 					Bool("raw_tools_has_input_schema", rawToolsHasInputSchema).
 					Str("raw_tools_preview", rawToolsPreview).
@@ -330,9 +349,9 @@ func (g *GeminiInternalRequest) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func hasFunctionDeclarations(tools []Tool) bool {
+func hasValidTools(tools []Tool) bool {
 	for _, tool := range tools {
-		if len(tool.FunctionDeclarations) > 0 {
+		if !tool.IsEmpty() {
 			return true
 		}
 	}

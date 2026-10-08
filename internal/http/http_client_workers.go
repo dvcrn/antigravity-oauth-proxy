@@ -25,6 +25,12 @@ func NewHTTPClient() HTTPClient {
 	}
 }
 
+// NewNoRedirectHTTPClient creates a client that returns redirect responses instead of following them.
+// The Workers client never follows redirects, so it is the same client.
+func NewNoRedirectHTTPClient() HTTPClient {
+	return NewHTTPClient()
+}
+
 // Do performs an HTTP request using Cloudflare Workers fetch
 func (c *WorkersHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	// Create a new fetch request

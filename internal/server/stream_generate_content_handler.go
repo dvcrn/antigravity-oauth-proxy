@@ -229,8 +229,12 @@ func (s *Server) handleStreamGenerateContent(w http.ResponseWriter, r *http.Requ
 			}
 		}
 		fnDecls := 0
+		googleSearchTools := 0
 		for _, t := range req.Tools {
 			fnDecls += len(t.FunctionDeclarations)
+			if t.GoogleSearch != nil {
+				googleSearchTools++
+			}
 		}
 		maxTok := 0
 		if req.GenerationConfig != nil {
@@ -249,6 +253,7 @@ func (s *Server) handleStreamGenerateContent(w http.ResponseWriter, r *http.Requ
 			Int("system_chars", sysChars).
 			Int("tools", len(req.Tools)).
 			Int("function_declarations", fnDecls).
+			Int("google_search_tools", googleSearchTools).
 			Int("max_output_tokens", maxTok).
 			Bool("has_thinking_config", hasThinkingConfig).
 			Str("thinking_level", thinkingLevel).

@@ -360,9 +360,21 @@ func convertToolsToGeminiTools(tools []openai.Tool) []antigravity.Tool {
 	}
 
 	var fns []antigravity.FunctionDeclaration
+	var builtIns []antigravity.Tool
 	for _, t := range tools {
+		if builtIn, ok := antigravity.BuiltInToolForName(t.Type); ok {
+			builtIns = append(builtIns, builtIn)
+			continue
+		}
 		if strings.ToLower(t.Type) != "function" {
 			continue
+		}
+		// A parameterless function named after a built-in tool requests the built-in tool.
+		if params, _ := t.Function.Parameters.(map[string]interface{}); len(params) == 0 {
+			if builtIn, ok := antigravity.BuiltInToolForName(t.Function.Name); ok {
+				builtIns = append(builtIns, builtIn)
+				continue
+			}
 		}
 
 		var geminiSchema *antigravity.GeminiParameterSchema
@@ -390,13 +402,16 @@ func convertToolsToGeminiTools(tools []openai.Tool) []antigravity.Tool {
 		fns = append(fns, convertedFn)
 	}
 
-	if len(fns) == 0 {
+	if len(fns) == 0 && len(builtIns) == 0 {
 		return nil
 	}
 
-	return []antigravity.Tool{
-		{FunctionDeclarations: fns},
+	var result []antigravity.Tool
+	if len(fns) > 0 {
+		result = append(result, antigravity.Tool{FunctionDeclarations: fns})
 	}
+	result = append(result, builtIns...)
+	return result
 }
 
 // convertToGeminiSchema recursively converts a generic map representing a JSON schema

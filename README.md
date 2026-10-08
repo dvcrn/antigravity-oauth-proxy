@@ -2,7 +2,7 @@
 
 Antigravity OAuth Proxy makes the models available to your Google Antigravity account usable through the Gemini API, an OpenAI-compatible endpoint, or MCP. It handles Google OAuth credentials and translates requests to the internal Cloud Code API used by Antigravity.
 
-The MCP server at `/mcp` gives agents tools to discover models available to your Antigravity account and send one-shot prompts without configuring a Gemini or OpenAI API client.
+The MCP server at `/mcp` gives agents tools to discover models available to your Antigravity account, send one-shot prompts, and search the web with Google Search, without configuring a Gemini or OpenAI API client.
 
 ```text
   ┌───────────────┐          ┌───────────────────┐          ┌───────────────────────┐
@@ -116,7 +116,7 @@ Set `CLOUDCODE_OAUTH_CREDS_PATH` to use a different credentials file, or provide
 | `POST /v1beta/models/{model}:streamGenerateContent` | Gemini-compatible streaming generation |
 | `POST /v1/chat/completions` | OpenAI-compatible chat completions |
 | `GET /v1/models` | Models available to the signed-in account |
-| `POST /mcp` | Stateless MCP server with `ask_gemini` and `ask_gemini_models` |
+| `POST /mcp` | Stateless MCP server with `ask_gemini`, `ask_gemini_models`, and `google_search` |
 | `POST /admin/auth/start` | Start Workers Google authorization |
 | `GET /admin/auth/status` | Read the Workers authorization state |
 | `POST /admin/auth/status` | Exchange an authorization code and store tokens |
@@ -128,6 +128,8 @@ Set `CLOUDCODE_OAUTH_CREDS_PATH` to use a different credentials file, or provide
 The `/mcp` endpoint uses stateless streamable HTTP with JSON responses. It keeps no conversation or session state between calls.
 
 MCP requests use the proxy's Google OAuth credentials upstream and the same `ADMIN_API_KEY` as the generation endpoints. No separate Gemini API key is required.
+
+`google_search` takes a `query` and an optional `model` (default `gemini-3.5-flash-lite`), and returns a grounded answer with its source URLs and the search queries used.
 
 MCP configuration varies by client. Configure a streamable HTTP server with:
 
