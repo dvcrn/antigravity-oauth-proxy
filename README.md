@@ -159,7 +159,7 @@ The client discovers these tools after it connects:
 | Tool | Input | Result |
 | --- | --- | --- |
 | `ask_gemini_models` | None | The default model and available model IDs |
-| `ask_gemini` | `model`, `prompt` | The requested model, model that served the request, and response text |
+| `ask_gemini` | `model`, `prompt`, optional `search_grounding` | The requested model, model that served the request, response text, and grounding sources and queries when `search_grounding` is set |
 
 Call `ask_gemini_models` first when the model ID is not already known. Its results reflect the models currently available to the signed-in Antigravity account.
 

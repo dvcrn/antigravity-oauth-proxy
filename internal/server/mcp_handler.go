@@ -22,15 +22,19 @@ const (
 type askGeminiInput struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
+	// SearchGrounding lets the model ground its answer with Google Search. @default false
+	SearchGrounding bool `json:"search_grounding,omitempty"`
 }
 
 // askGeminiOutput is the structured result of the ask_gemini tool. Model is the
 // model that actually served the request, which can differ from the requested
 // one via model resolution or the client's 404 fallback.
 type askGeminiOutput struct {
-	RequestedModel string `json:"requested_model"`
-	Model          string `json:"model"`
-	Text           string `json:"text"`
+	RequestedModel string               `json:"requested_model"`
+	Model          string               `json:"model"`
+	Text           string               `json:"text"`
+	Sources        []googleSearchSource `json:"sources,omitempty"`
+	Queries        []string             `json:"queries,omitempty"`
 }
 
 // askGeminiModelsInput is the (empty) input for the ask_gemini_models tool.
@@ -65,6 +69,8 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 			"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
 				"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
 			"prompt": mcpStringSchema("The full question or instruction to send to the model."),
+			"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +
+				"and return the sources and queries it used. The model decides whether to search. Defaults to false."),
 		}, "model", "prompt"),
 	}, s.mcpAskGemini)
 
@@ -116,12 +122,7 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		return askGeminiOutput{}, fmt.Errorf("model has been removed from this proxy: %s", requestedModel)
 	}
 
-	request := antigravity.GeminiInternalRequest{
-		Contents: []antigravity.Content{{
-			Role:  "user",
-			Parts: []antigravity.ContentPart{{Text: prompt}},
-		}},
-	}
+	request := newAskGeminiRequest(prompt, in.SearchGrounding)
 	applyModelThinkingDefaults(requestedModel, &request)
 	resolvedModel := resolveModelForThinking(requestedModel, request)
 
@@ -129,6 +130,7 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		Str("requested_model", requestedModel).
 		Str("model", resolvedModel).
 		Int("prompt_len", len(prompt)).
+		Bool("search_grounding", in.SearchGrounding).
 		Msg("MCP ask_gemini request received")
 
 	apiCallStart := time.Now()
@@ -159,11 +161,19 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		return askGeminiOutput{}, fmt.Errorf("model %q returned no text", servedModel)
 	}
 
+	var sources []googleSearchSource
+	var queries []string
+	if in.SearchGrounding {
+		sources, queries = extractGrounding(resp.Response)
+		sources = s.resolveGroundingRedirects(ctx, sources)
+	}
+
 	logger.Get().Info().
 		Str("requested_model", requestedModel).
 		Str("model", servedModel).
 		Str("resolved_model", resolvedModel).
 		Int("text_len", len(text)).
+		Int("sources", len(sources)).
 		Dur("api_call_duration", time.Since(apiCallStart)).
 		Msg("MCP ask_gemini completed")
 
@@ -171,7 +181,22 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		RequestedModel: requestedModel,
 		Model:          servedModel,
 		Text:           text,
+		Sources:        sources,
+		Queries:        queries,
 	}, nil
+}
+
+func newAskGeminiRequest(prompt string, searchGrounding bool) antigravity.GeminiInternalRequest {
+	request := antigravity.GeminiInternalRequest{
+		Contents: []antigravity.Content{{
+			Role:  "user",
+			Parts: []antigravity.ContentPart{{Text: prompt}},
+		}},
+	}
+	if searchGrounding {
+		request.Tools = []antigravity.Tool{{GoogleSearch: map[string]interface{}{}}}
+	}
+	return request
 }
 
 func (s *Server) mcpAskGeminiModels(ctx context.Context, _ askGeminiModelsInput) (askGeminiModelsOutput, error) {
@@ -271,4 +296,8 @@ func mcpObjectSchema(properties map[string]any, required ...string) map[string]a
 
 func mcpStringSchema(description string) map[string]any {
 	return map[string]any{"type": "string", "description": description}
+}
+
+func mcpBooleanSchema(description string) map[string]any {
+	return map[string]any{"type": "boolean", "description": description}
 }

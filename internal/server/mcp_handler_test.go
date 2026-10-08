@@ -133,6 +133,11 @@ func TestMCPToolsList(t *testing.T) {
 	schema, ok := tools["ask_gemini"]["inputSchema"].(map[string]interface{})
 	require.True(t, ok)
 	assert.ElementsMatch(t, []interface{}{"model", "prompt"}, schema["required"])
+	properties, ok := schema["properties"].(map[string]interface{})
+	require.True(t, ok)
+	searchGrounding, ok := properties["search_grounding"].(map[string]interface{})
+	require.True(t, ok, "ask_gemini has no search_grounding property")
+	assert.Equal(t, "boolean", searchGrounding["type"])
 
 	schema, ok = tools["google_search"]["inputSchema"].(map[string]interface{})
 	require.True(t, ok)
@@ -192,6 +197,15 @@ func TestMCPAskGeminiRejectsInvalidInput(t *testing.T) {
 			assert.Contains(t, mcpResultText(t, result), tc.wantMessage)
 		})
 	}
+}
+
+func TestNewAskGeminiRequestSearchGrounding(t *testing.T) {
+	assert.Empty(t, newAskGeminiRequest("hello", false).Tools)
+
+	tools := newAskGeminiRequest("hello", true).Tools
+	require.Len(t, tools, 1)
+	assert.NotNil(t, tools[0].GoogleSearch)
+	assert.Empty(t, tools[0].FunctionDeclarations)
 }
 
 func mcpResultText(t *testing.T, result map[string]interface{}) string {
