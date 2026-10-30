@@ -120,6 +120,76 @@ func TestConvertSchema(t *testing.T) {
 				Type: "STRING",
 			},
 		},
+		{
+			name: "tuple-style items (draft-07 array of schemas)",
+			input: `{
+				"type": "array",
+				"items": [
+					{"type": "string"},
+					{"type": "number"}
+				]
+			}`,
+			expected: &GeminiParameterSchema{
+				Type: "ARRAY",
+				Items: &GeminiParameterSchema{
+					Type: "STRING",
+				},
+			},
+		},
+		{
+			name: "empty tuple-style items falls back to string",
+			input: `{
+				"type": "array",
+				"items": []
+			}`,
+			expected: &GeminiParameterSchema{
+				Type: "ARRAY",
+				Items: &GeminiParameterSchema{
+					Type: "STRING",
+				},
+			},
+		},
+		{
+			name: "array without items gets permissive fallback",
+			input: `{
+				"type": "array"
+			}`,
+			expected: &GeminiParameterSchema{
+				Type: "ARRAY",
+				Items: &GeminiParameterSchema{
+					Type: "STRING",
+				},
+			},
+		},
+		{
+			name: "nested array without inner items gets permissive fallback",
+			input: `{
+				"type": "array",
+				"items": {
+					"type": "array"
+				}
+			}`,
+			expected: &GeminiParameterSchema{
+				Type: "ARRAY",
+				Items: &GeminiParameterSchema{
+					Type: "ARRAY",
+					Items: &GeminiParameterSchema{
+						Type: "STRING",
+					},
+				},
+			},
+		},
+		{
+			name: "empty items object is preserved",
+			input: `{
+				"type": "array",
+				"items": {}
+			}`,
+			expected: &GeminiParameterSchema{
+				Type:  "ARRAY",
+				Items: &GeminiParameterSchema{},
+			},
+		},
 	}
 
 	for _, tt := range tests {

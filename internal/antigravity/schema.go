@@ -94,11 +94,26 @@ func ConvertSchema(input map[string]interface{}) *GeminiParameterSchema {
 		}
 	}
 
-	if i, ok := input["items"].(map[string]interface{}); ok {
-		output.Items = ConvertSchema(i)
-		if output.Type == "" {
-			output.Type = "ARRAY"
+	switch items := input["items"].(type) {
+	case map[string]interface{}:
+		output.Items = ConvertSchema(items)
+	case []interface{}:
+		// Draft-07 tuple-style items: Gemini has no tuple form, so use the
+		// first element schema.
+		for _, el := range items {
+			if m, ok := el.(map[string]interface{}); ok {
+				output.Items = ConvertSchema(m)
+				break
+			}
 		}
+	}
+	if output.Items != nil && output.Type == "" {
+		output.Type = "ARRAY"
+	}
+
+	// Gemini rejects ARRAY schemas without items.
+	if output.Type == "ARRAY" && output.Items == nil {
+		output.Items = &GeminiParameterSchema{Type: "STRING"}
 	}
 
 	return output
