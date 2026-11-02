@@ -26,10 +26,6 @@ run = ["go vet ./...", "node --test scripts/*.test.mjs"]
 description = "Check Go formatting"
 run = "test -z \"$(git ls-files '*.go' | xargs go tool mvdan.cc/gofumpt -l)\""
 
-[tasks.publish]
-description = "Publish the npm wrapper package in npm/"
-run = "cd npm/ && npm publish"
-
 [tasks.format]
 description = "Format Go code"
 run = [
