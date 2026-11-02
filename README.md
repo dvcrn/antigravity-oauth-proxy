@@ -165,6 +165,23 @@ Call `ask_gemini_models` first when the model ID is not already known. Its resul
 
 `ask_gemini` is one-shot. It does not retain conversation history, so `prompt` must include all context needed for that call. The returned `model` may differ from `requested_model` when the proxy resolves a model variant or falls back after an upstream 404.
 
+## Docker images
+
+GitHub Actions builds and publishes images for `linux/amd64` and `linux/arm64` to `ghcr.io/dvcrn/antigravity-oauth-proxy`:
+
+| Git event | Image tags |
+| --- | --- |
+| Push to `main` | `main`, `latest`, `sha-<full commit SHA>` |
+| Push a Git tag, e.g. `1.2.3` | `1.2.3`, `latest`, `sha-<full commit SHA>` |
+
+```bash
+docker run -p 9878:9878 -e ADMIN_API_KEY=your-secret \
+  -v ~/.config/antigravity-oauth-proxy:/home/appuser/.config/antigravity-oauth-proxy \
+  ghcr.io/dvcrn/antigravity-oauth-proxy:latest
+```
+
+The image runs as a non-root user and listens on port `9878`. `:latest` follows the most recent push to `main` or Git tag.
+
 ## Cloudflare Workers
 
 Workers deployments store OAuth credentials in KV and use a [Workers VPC](https://developers.cloudflare.com/workers-vpc/) tunnel for provider egress. Install Go 1.25 or newer, [mise](https://mise.jdx.dev/), and Wrangler 4, then run `mise install` and `wrangler login`. The account, namespace, and tunnel IDs checked into `wrangler.toml` belong to the maintainer deployment and must be replaced for another Cloudflare account.
