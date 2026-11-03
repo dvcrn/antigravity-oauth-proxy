@@ -63,11 +63,8 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_gemini",
-		Description: "Ask a Gemini model a single self-contained question and get its answer back as text. " +
-			"Requests are served by the Antigravity (agy) CLI backend using the local Antigravity OAuth " +
-			"credentials, so no separate Gemini API key is involved. Each call is one-shot: there is no " +
-			"conversation history, so put everything the model needs into the prompt. Call ask_gemini_models " +
-			"first if you are unsure which model IDs are available.",
+		Description: "Ask a Gemini model a single self-contained question and get its answer back as text. Prefer to use the async variant for most -medium or -high queries due to timeout." +
+			"Call ask_gemini_models first if you are unsure which model IDs are available. ",
 		InputSchema: askGeminiInputSchema(),
 	}, limitMCPCalls(syncSlots, s.mcpAskGemini))
 

@@ -47,8 +47,7 @@ func (s *Server) addGoogleSearchTool(srv *mcpsdk.Server, syncSlots chan struct{}
 		Name: "google_search",
 		Description: "Search the web with Google Search and get a grounded answer with its source URLs. " +
 			"Use for current events, recent releases, documentation lookups, or anything that needs " +
-			"up-to-date information. Requests are served by the Antigravity (agy) CLI backend with Google " +
-			"Search grounding. Each call is one-shot, so phrase the query as a complete question.",
+			"up-to-date information. For longer requests, prefer to use the async variant.",
 		InputSchema: googleSearchInputSchema(),
 	}, limitMCPCalls(syncSlots, s.mcpGoogleSearch))
 }
