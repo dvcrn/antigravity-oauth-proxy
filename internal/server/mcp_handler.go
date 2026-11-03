@@ -58,6 +58,9 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 		Version: mcpServerVersion,
 	}, nil)
 
+	// Shared by the sync generation tools. Async jobs have their own cap.
+	syncSlots := make(chan struct{}, mcpSyncCallLimit)
+
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_gemini",
 		Description: "Ask a Gemini model a single self-contained question and get its answer back as text. " +
@@ -66,7 +69,7 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 			"conversation history, so put everything the model needs into the prompt. Call ask_gemini_models " +
 			"first if you are unsure which model IDs are available.",
 		InputSchema: askGeminiInputSchema(),
-	}, s.mcpAskGemini)
+	}, limitMCPCalls(syncSlots, s.mcpAskGemini))
 
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_gemini_models",
@@ -76,7 +79,7 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 		InputSchema: mcpObjectSchema(map[string]any{}),
 	}, s.mcpAskGeminiModels)
 
-	s.addGoogleSearchTool(srv)
+	s.addGoogleSearchTool(srv, syncSlots)
 
 	s.addAsyncMCPTools(srv)
 

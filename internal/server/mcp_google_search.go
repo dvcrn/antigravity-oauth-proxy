@@ -42,7 +42,7 @@ type googleSearchOutput struct {
 	Queries []string             `json:"queries,omitempty"`
 }
 
-func (s *Server) addGoogleSearchTool(srv *mcpsdk.Server) {
+func (s *Server) addGoogleSearchTool(srv *mcpsdk.Server, syncSlots chan struct{}) {
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "google_search",
 		Description: "Search the web with Google Search and get a grounded answer with its source URLs. " +
@@ -50,7 +50,7 @@ func (s *Server) addGoogleSearchTool(srv *mcpsdk.Server) {
 			"up-to-date information. Requests are served by the Antigravity (agy) CLI backend with Google " +
 			"Search grounding. Each call is one-shot, so phrase the query as a complete question.",
 		InputSchema: googleSearchInputSchema(),
-	}, s.mcpGoogleSearch)
+	}, limitMCPCalls(syncSlots, s.mcpGoogleSearch))
 }
 
 func googleSearchInputSchema() map[string]any {
