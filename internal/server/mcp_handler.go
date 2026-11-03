@@ -78,9 +78,7 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 
 	s.addGoogleSearchTool(srv)
 
-	if asyncJobsEnabled {
-		s.addAsyncMCPTools(srv)
-	}
+	s.addAsyncMCPTools(srv)
 
 	return srv
 }

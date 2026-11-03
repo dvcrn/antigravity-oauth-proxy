@@ -4,7 +4,8 @@ compatibility_date = "2026-09-07"
 account_id = "02c07a2514d9a25f58c78a180bb8c6f3"
 workers_dev = true
 compatibility_flags = [
-    "streams_enable_constructors"
+    "streams_enable_constructors",
+    "durable_object_io_tasks_prevent_eviction"
 ]
 kv_namespaces = [
   { binding = "ANTIGRAVITY_AUTH", id = "4065e13471e546858a8c7a95e28ff176" }
@@ -12,6 +13,14 @@ kv_namespaces = [
 vpc_networks = [
   { binding = "ANTIGRAVITY_EGRESS", tunnel_id = "ce0561f2-73c2-486f-98ee-1a2f2e72ffa8", remote = true }
 ]
+
+[[durable_objects.bindings]]
+name = "MCP_SERVER"
+class_name = "MCPServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MCPServer"]
 
 [vars]
 ENV = "production"

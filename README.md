@@ -166,7 +166,7 @@ The client discovers these tools after it connects:
 
 Call `ask_gemini_models` first when the model ID is not already known. Its results reflect the models currently available to the signed-in Antigravity account.
 
-Use the `*_async` tools when a slow model may exceed the client's tool timeout. `get_async_result` waits up to 20 seconds per call, so call it again until `done` is true. The proxy keeps at most 10 jobs in memory and loses them on restart. Async tools are not available on the Cloudflare Workers deployment.
+Use the `*_async` tools when a slow model may exceed the client's tool timeout. `get_async_result` waits up to 20 seconds per call, so call it again until `done` is true. The proxy keeps at most 10 jobs in memory and loses them on restart.
 
 `ask_gemini` is one-shot. It does not retain conversation history, so `prompt` must include all context needed for that call. The returned `model` may differ from `requested_model` when the proxy resolves a model variant or falls back after an upstream 404.
 
