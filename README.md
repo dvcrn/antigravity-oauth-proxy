@@ -162,11 +162,11 @@ The client discovers these tools after it connects:
 | `ask_gemini` | `model`, `prompt`, optional `search_grounding` | The requested model, model that served the request, response text, and grounding sources and queries when `search_grounding` is set |
 | `ask_gemini_async` | Same as `ask_gemini` | A `job_id` to pass to `get_async_result` |
 | `google_search_async` | Same as `google_search` | A `job_id` to pass to `get_async_result` |
-| `get_async_result` | `job_id` | `done: false` while the job runs, or `done: true` with the sync tool's output in `result` |
+| `get_async_result` | `job_id` | `done: false` while the job runs, `done: true` with the sync tool's output in `result`, or the sync tool's error if the job failed or timed out |
 
 Call `ask_gemini_models` first when the model ID is not already known. Its results reflect the models currently available to the signed-in Antigravity account.
 
-Use the `*_async` tools when a slow model may exceed the client's tool timeout. `get_async_result` waits up to 20 seconds per call, so call it again until `done` is true. The proxy keeps at most 10 jobs in memory and loses them on restart.
+Use the `*_async` tools when a slow model may exceed the client's tool timeout. `get_async_result` waits up to 20 seconds per call, so call it again until `done` is true. The proxy keeps at most 10 jobs in memory and loses them on restart. On Cloudflare Workers, jobs can also be lost when the MCP Durable Object is evicted after a minute or two without requests.
 
 `ask_gemini` is one-shot. It does not retain conversation history, so `prompt` must include all context needed for that call. The returned `model` may differ from `requested_model` when the proxy resolves a model variant or falls back after an upstream 404.
 

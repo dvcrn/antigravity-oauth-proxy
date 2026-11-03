@@ -211,20 +211,20 @@ func tieredFallbackModel(model string) string {
 }
 
 // GenerateContent performs a request to the Cloud Code API to generate content.
-func (c *Client) GenerateContent(req *GenerateContentRequest) (*GenerateContentResponse, error) {
-	resp, err := c.generateContentInternal(req)
+func (c *Client) GenerateContent(ctx context.Context, req *GenerateContentRequest) (*GenerateContentResponse, error) {
+	resp, err := c.generateContentInternal(ctx, req)
 	if err != nil && is404Error(err) {
 		if fallback := tieredFallbackModel(req.Model); fallback != "" {
 			logger.Get().Warn().Str("original_model", req.Model).Msg("Upstream returned 404 for model, retrying with tiered variant")
 			tieredReq := *req
 			tieredReq.Model = fallback
-			return c.generateContentInternal(&tieredReq)
+			return c.generateContentInternal(ctx, &tieredReq)
 		}
 	}
 	return resp, err
 }
 
-func (c *Client) generateContentInternal(req *GenerateContentRequest) (*GenerateContentResponse, error) {
+func (c *Client) generateContentInternal(ctx context.Context, req *GenerateContentRequest) (*GenerateContentResponse, error) {
 	prepareAntigravityRequest(req)
 
 	bodyBytes, err := json.Marshal(req)
@@ -235,7 +235,7 @@ func (c *Client) generateContentInternal(req *GenerateContentRequest) (*Generate
 	var lastErr error
 	for _, endpoint := range Endpoints {
 		url := fmt.Sprintf("%s/v1internal:generateContent", endpoint)
-		resp, err := c.doRequest(context.Background(), "POST", url, bodyBytes, "application/json")
+		resp, err := c.doRequest(ctx, "POST", url, bodyBytes, "application/json")
 		if err != nil {
 			lastErr = err
 			logger.Get().Warn().Err(err).Str("endpoint", endpoint).Msg("generateContent request failed")

@@ -47,6 +47,7 @@ type asyncJob struct {
 	done       chan struct{} // closed by finish
 	result     map[string]any
 	err        error
+	read       bool // a poll has returned the final outcome
 }
 
 // expired reports whether a running job has outlived asyncJobTimeout.
@@ -74,26 +75,28 @@ func newAsyncJobStore() *asyncJobStore {
 	return &asyncJobStore{jobs: make(map[string]*asyncJob, asyncJobCapacity)}
 }
 
-// start registers a running job, evicting the oldest finished or expired job when full.
+// start registers a running job. When the store is full it evicts a finished
+// job, preferring ones whose outcome was already read, then the earliest finished.
 func (s *asyncJobStore) start(tool string) (*asyncJob, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
 	if len(s.jobs) >= asyncJobCapacity {
-		var oldest *asyncJob
+		var victim *asyncJob
 		for _, job := range s.jobs {
-			if job.status == asyncJobRunning && !job.expired(now) {
+			job.failIfExpired(now)
+			if job.status == asyncJobRunning {
 				continue
 			}
-			if oldest == nil || job.startedAt.Before(oldest.startedAt) {
-				oldest = job
+			if victim == nil || evictBefore(job, victim) {
+				victim = job
 			}
 		}
-		if oldest == nil {
+		if victim == nil {
 			return nil, errAsyncJobCapacity
 		}
-		delete(s.jobs, oldest.id)
+		delete(s.jobs, victim.id)
 	}
 
 	job := &asyncJob{
@@ -105,6 +108,13 @@ func (s *asyncJobStore) start(tool string) (*asyncJob, error) {
 	}
 	s.jobs[job.id] = job
 	return job, nil
+}
+
+func evictBefore(a, b *asyncJob) bool {
+	if a.read != b.read {
+		return a.read
+	}
+	return a.finishedAt.Before(b.finishedAt)
 }
 
 // finish records the outcome of a job. Finishing an evicted job is harmless.
@@ -132,20 +142,18 @@ func (s *asyncJobStore) finish(job *asyncJob, result map[string]any, err error) 
 func (s *asyncJobStore) wait(ctx context.Context, id string) (asyncJob, bool) {
 	s.mu.Lock()
 	job, ok := s.jobs[id]
-	if ok {
-		job.failIfExpired(time.Now())
-	}
-	var snapshot asyncJob
-	if ok {
-		snapshot = *job
-	}
-	s.mu.Unlock()
 	if !ok {
+		s.mu.Unlock()
 		return asyncJob{}, false
 	}
-	if snapshot.status != asyncJobRunning {
+	job.failIfExpired(time.Now())
+	if job.status != asyncJobRunning {
+		job.read = true
+		snapshot := *job
+		s.mu.Unlock()
 		return snapshot, true
 	}
+	s.mu.Unlock()
 
 	timer := time.NewTimer(asyncJobPollWait)
 	defer timer.Stop()
@@ -158,6 +166,9 @@ func (s *asyncJobStore) wait(ctx context.Context, id string) (asyncJob, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	job.failIfExpired(time.Now())
+	if job.status != asyncJobRunning {
+		job.read = true
+	}
 	return *job, true
 }
 
@@ -207,10 +218,10 @@ func (s *Server) addAsyncMCPTools(srv *mcpsdk.Server) {
 
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "get_async_result",
-		Description: "Get the Antigravity (agy) CLI backend's answer for a job started by an *_async tool. " +
-			"Waits up to 20 seconds, then returns done=false if the model is still working. Once finished, " +
-			"result holds the same fields the sync tool returns. Jobs live in memory, at most 10 are kept, " +
-			"and they are lost when the proxy restarts.",
+		Description: fmt.Sprintf("Get the Antigravity (agy) CLI backend's answer for a job started by an *_async tool. "+
+			"Waits up to %d seconds, then returns done=false if the model is still working. Once finished, "+
+			"result holds the same fields the sync tool returns. Jobs live in memory, at most %d are kept, "+
+			"and they are lost when the proxy restarts.", int(asyncJobPollWait.Seconds()), asyncJobCapacity),
 		InputSchema: mcpObjectSchema(map[string]any{
 			"job_id": mcpStringSchema("The job_id returned by an *_async tool."),
 		}, "job_id"),
@@ -239,8 +250,11 @@ func addAsyncMCPTool[In, Out any](
 		}
 
 		// The tool call's ctx is cancelled once the submit response is written, so
-		// the job runs on its own context.
+		// the job runs on its own context, bounded so a hung upstream call is cancelled.
 		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), asyncJobTimeout)
+			defer cancel()
+
 			var result map[string]any
 			var err error
 			defer func() {
@@ -251,7 +265,7 @@ func addAsyncMCPTool[In, Out any](
 				store.finish(job, result, err)
 			}()
 
-			out, runErr := run(context.Background(), in)
+			out, runErr := run(ctx, in)
 			if runErr != nil {
 				err = runErr
 				return

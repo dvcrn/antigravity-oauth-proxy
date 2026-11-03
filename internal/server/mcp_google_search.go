@@ -100,7 +100,7 @@ func (s *Server) mcpGoogleSearch(ctx context.Context, in googleSearchInput) (goo
 	resolvedModel := resolveModelForThinking(requestedModel, request)
 
 	apiCallStart := time.Now()
-	resp, err := s.antigravityClient.GenerateContent(&antigravity.GenerateContentRequest{
+	resp, err := s.antigravityClient.GenerateContent(ctx, &antigravity.GenerateContentRequest{
 		Model:   resolvedModel,
 		Project: s.projectID,
 		Request: request,

@@ -460,7 +460,7 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 
 	// Call non-streaming GenerateContent
 	apiStart := time.Now()
-	resp, err := s.antigravityClient.GenerateContent(gemReq)
+	resp, err := s.antigravityClient.GenerateContent(r.Context(), gemReq)
 	if err != nil {
 		logger.Get().Error().Err(err).Dur("api_call_duration", time.Since(apiStart)).Msg("GenerateContent failed")
 		http.Error(w, "Error calling GenerateContent", http.StatusInternalServerError)

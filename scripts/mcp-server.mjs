@@ -19,15 +19,11 @@ export class MCPServer {
     }
     this.binding ??= startGo(this.env, this.ctx, () => {
       this.binding = undefined;
-    });
-    let binding;
-    try {
-      binding = await this.binding;
-    } catch (error) {
+    }).catch((error) => {
       this.binding = undefined;
       throw error;
-    }
-    return binding.handleRequest(request);
+    });
+    return (await this.binding).handleRequest(request);
   }
 }
 

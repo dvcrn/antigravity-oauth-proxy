@@ -328,3 +328,31 @@ func TestAsyncMCPToolRecoversPanic(t *testing.T) {
 	assert.Equal(t, asyncJobFailed, job.status)
 	assert.ErrorContains(t, job.err, "boom panicked: kaboom")
 }
+
+func TestAsyncJobStoreEvictsReadJobsFirst(t *testing.T) {
+	setAsyncPollWait(t, 10*time.Millisecond)
+	store := newAsyncJobStore()
+
+	unread, err := store.start("ask_gemini")
+	require.NoError(t, err)
+	read, err := store.start("ask_gemini")
+	require.NoError(t, err)
+	for i := 2; i < asyncJobCapacity; i++ {
+		_, err := store.start("ask_gemini")
+		require.NoError(t, err)
+	}
+
+	// unread finished earlier, so oldest-first alone would evict it.
+	store.finish(unread, map[string]any{"text": "unread"}, nil)
+	store.finish(read, map[string]any{"text": "read"}, nil)
+	_, ok := store.wait(context.Background(), read.id)
+	require.True(t, ok)
+
+	_, err = store.start("ask_gemini")
+	require.NoError(t, err)
+	_, ok = store.wait(context.Background(), read.id)
+	assert.False(t, ok, "the read job should be evicted")
+	job, ok := store.wait(context.Background(), unread.id)
+	require.True(t, ok, "the unread job should be kept")
+	assert.Equal(t, "unread", job.result["text"])
+}

@@ -5,7 +5,8 @@ import { createMCPRouter } from "./mcp-router.mjs";
 
 export { MCPServer } from "./mcp-server.mjs";
 
-const fetch = createModelCache(createRequestLimiter(createMCPRouter(worker.fetch.bind(worker))));
+// /mcp bypasses the limiter, which bounds per-request Go instances in this isolate.
+const fetch = createModelCache(createMCPRouter(createRequestLimiter(worker.fetch.bind(worker))));
 
 export default {
   ...worker,

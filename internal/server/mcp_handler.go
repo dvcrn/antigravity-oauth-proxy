@@ -147,7 +147,7 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		Msg("MCP ask_gemini request received")
 
 	apiCallStart := time.Now()
-	resp, err := s.antigravityClient.GenerateContent(&antigravity.GenerateContentRequest{
+	resp, err := s.antigravityClient.GenerateContent(ctx, &antigravity.GenerateContentRequest{
 		Model:   resolvedModel,
 		Project: s.projectID,
 		Request: request,

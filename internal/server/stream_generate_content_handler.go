@@ -107,7 +107,7 @@ func (s *Server) handleGenerateContent(w http.ResponseWriter, r *http.Request, m
 	}
 
 	apiCallStart := time.Now()
-	resp, err := s.antigravityClient.GenerateContent(genReq)
+	resp, err := s.antigravityClient.GenerateContent(r.Context(), genReq)
 	if err != nil {
 		logger.Get().Error().
 			Err(err).
