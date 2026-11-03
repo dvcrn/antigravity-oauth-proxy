@@ -12,7 +12,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
-	github.com/syumai/workers v0.30.2
+	github.com/syumai/workers v0.33.0
 )
 
 require (
