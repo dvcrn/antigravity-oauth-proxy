@@ -58,21 +58,15 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 		Version: mcpServerVersion,
 	}, nil)
 
+	// Shared by the sync generation tools. Async jobs have their own cap.
+	syncSlots := make(chan struct{}, mcpSyncCallLimit)
+
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_gemini",
-		Description: "Ask a Gemini model a single self-contained question and get its answer back as text. " +
-			"Requests are served by the Antigravity (agy) CLI backend using the local Antigravity OAuth " +
-			"credentials, so no separate Gemini API key is involved. Each call is one-shot: there is no " +
-			"conversation history, so put everything the model needs into the prompt. Call ask_gemini_models " +
-			"first if you are unsure which model IDs are available.",
-		InputSchema: mcpObjectSchema(map[string]any{
-			"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
-				"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
-			"prompt": mcpStringSchema("The full question or instruction to send to the model."),
-			"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +
-				"and return the sources and queries it used. The model decides whether to search. Defaults to false."),
-		}, "model", "prompt"),
-	}, s.mcpAskGemini)
+		Description: "Ask a Gemini model a single self-contained question and get its answer back as text. Prefer to use the async variant for most -medium or -high queries due to timeout." +
+			"Call ask_gemini_models first if you are unsure which model IDs are available. ",
+		InputSchema: askGeminiInputSchema(),
+	}, limitMCPCalls(syncSlots, s.mcpAskGemini))
 
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_gemini_models",
@@ -82,9 +76,21 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 		InputSchema: mcpObjectSchema(map[string]any{}),
 	}, s.mcpAskGeminiModels)
 
-	s.addGoogleSearchTool(srv)
+	s.addGoogleSearchTool(srv, syncSlots)
+
+	s.addAsyncMCPTools(srv)
 
 	return srv
+}
+
+func askGeminiInputSchema() map[string]any {
+	return mcpObjectSchema(map[string]any{
+		"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
+			"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
+		"prompt": mcpStringSchema("The full question or instruction to send to the model."),
+		"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +
+			"and return the sources and queries it used. The model decides whether to search. Defaults to false."),
+	}, "model", "prompt")
 }
 
 // mcpHandler returns the stateless streamable HTTP handler for /mcp. The server
@@ -108,19 +114,26 @@ func (s *Server) mcpHandler() http.HandlerFunc {
 	return handler.ServeHTTP
 }
 
-func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGeminiOutput, error) {
-	prompt := strings.TrimSpace(in.Prompt)
-	if prompt == "" {
-		return askGeminiOutput{}, fmt.Errorf("prompt is required")
+func validateAskGeminiInput(in askGeminiInput) error {
+	if strings.TrimSpace(in.Prompt) == "" {
+		return fmt.Errorf("prompt is required")
 	}
+	model := strings.TrimSpace(in.Model)
+	if model == "" {
+		return fmt.Errorf("model is required; call ask_gemini_models to list available models")
+	}
+	if isRemovedModel(model) {
+		return fmt.Errorf("model has been removed from this proxy: %s", model)
+	}
+	return nil
+}
 
+func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGeminiOutput, error) {
+	if err := validateAskGeminiInput(in); err != nil {
+		return askGeminiOutput{}, err
+	}
+	prompt := strings.TrimSpace(in.Prompt)
 	requestedModel := strings.TrimSpace(in.Model)
-	if requestedModel == "" {
-		return askGeminiOutput{}, fmt.Errorf("model is required; call ask_gemini_models to list available models")
-	}
-	if isRemovedModel(requestedModel) {
-		return askGeminiOutput{}, fmt.Errorf("model has been removed from this proxy: %s", requestedModel)
-	}
 
 	request := newAskGeminiRequest(prompt, in.SearchGrounding)
 	applyModelThinkingDefaults(requestedModel, &request)
@@ -134,7 +147,7 @@ func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGemini
 		Msg("MCP ask_gemini request received")
 
 	apiCallStart := time.Now()
-	resp, err := s.antigravityClient.GenerateContent(&antigravity.GenerateContentRequest{
+	resp, err := s.antigravityClient.GenerateContent(ctx, &antigravity.GenerateContentRequest{
 		Model:   resolvedModel,
 		Project: s.projectID,
 		Request: request,

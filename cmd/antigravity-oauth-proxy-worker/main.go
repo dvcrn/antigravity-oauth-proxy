@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"syscall/js"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/credentials"
@@ -70,6 +71,13 @@ func init() {
 }
 
 func main() {
-	// Serve using workers - it handles all the HTTP server setup
+	// workers.Serve exits after the first response. The MCP Durable Object sets
+	// context.persistent to keep one instance serving every request, so the async
+	// MCP job store survives between calls.
+	if js.Global().Get("context").Get("persistent").Truthy() {
+		workers.ServeNonBlock(srv)
+		workers.Ready()
+		select {}
+	}
 	workers.Serve(srv)
 }

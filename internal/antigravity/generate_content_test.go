@@ -2,6 +2,7 @@ package antigravity
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -26,9 +27,11 @@ func (stubCredentialsProvider) Name() string                                    
 type stubHTTPClient struct {
 	statusForModel map[string]int
 	requestedModel []string
+	lastContext    context.Context
 }
 
 func (c *stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	c.lastContext = req.Context()
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
@@ -72,7 +75,7 @@ func TestGenerateContentReportsServedModel(t *testing.T) {
 		statusForModel: map[string]int{"gemini-3.1-pro-low": http.StatusOK},
 	}
 
-	resp, err := newTestClient(stub).GenerateContent(&GenerateContentRequest{
+	resp, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
 		Model:   "gemini-3.1-pro-low",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
@@ -92,7 +95,7 @@ func TestGenerateContentReportsTieredFallbackModel(t *testing.T) {
 		},
 	}
 
-	resp, err := newTestClient(stub).GenerateContent(&GenerateContentRequest{
+	resp, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
 		Model:   "gemini-3.7-flash-high",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
@@ -110,7 +113,7 @@ func TestGenerateContentReportsTieredFallbackModel38(t *testing.T) {
 		},
 	}
 
-	resp, err := newTestClient(stub).GenerateContent(&GenerateContentRequest{
+	resp, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
 		Model:   "gemini-3.8-flash-high",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
@@ -125,11 +128,22 @@ func TestGenerateContentDoesNotFallBackForOtherModels(t *testing.T) {
 		statusForModel: map[string]int{"gemini-3.1-pro-low": http.StatusNotFound},
 	}
 
-	_, err := newTestClient(stub).GenerateContent(&GenerateContentRequest{
+	_, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
 		Model:   "gemini-3.1-pro-low",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
 
 	require.Error(t, err)
 	assert.Equal(t, []string{"gemini-3.1-pro-low"}, stub.requestedModel)
+}
+
+func TestGenerateContentUsesCallerContext(t *testing.T) {
+	stub := &stubHTTPClient{statusForModel: map[string]int{"gemini-3.5-flash-lite": http.StatusOK}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _ = newTestClient(stub).GenerateContent(ctx, &GenerateContentRequest{Model: "gemini-3.5-flash-lite"})
+	if stub.lastContext == nil || stub.lastContext.Err() != context.Canceled {
+		t.Fatalf("upstream request did not carry the caller's context: %v", stub.lastContext)
+	}
 }
