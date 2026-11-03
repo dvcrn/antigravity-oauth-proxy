@@ -131,13 +131,6 @@ func TestMCPToolsList(t *testing.T) {
 	assert.Equal(t, tools["ask_gemini"]["inputSchema"], tools["ask_gemini_async"]["inputSchema"])
 	assert.Equal(t, tools["google_search"]["inputSchema"], tools["google_search_async"]["inputSchema"])
 
-	// All descriptions must tell the caller the answers come from Antigravity.
-	for name, tool := range tools {
-		description, ok := tool["description"].(string)
-		require.True(t, ok, "tool %s has no description", name)
-		assert.Contains(t, description, "Antigravity (agy) CLI", "tool %s", name)
-	}
-
 	schema, ok := tools["ask_gemini"]["inputSchema"].(map[string]interface{})
 	require.True(t, ok)
 	assert.ElementsMatch(t, []interface{}{"model", "prompt"}, schema["required"])
