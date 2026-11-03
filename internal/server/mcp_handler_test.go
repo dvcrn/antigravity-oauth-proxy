@@ -122,6 +122,14 @@ func TestMCPToolsList(t *testing.T) {
 	require.Contains(t, tools, "ask_gemini")
 	require.Contains(t, tools, "ask_gemini_models")
 	require.Contains(t, tools, "google_search")
+	require.Contains(t, tools, "ask_gemini_async")
+	require.Contains(t, tools, "google_search_async")
+	require.Contains(t, tools, "get_async_result")
+	require.NotContains(t, tools, "ask_gemini_models_async")
+
+	// Async variants take exactly the sync tool's input.
+	assert.Equal(t, tools["ask_gemini"]["inputSchema"], tools["ask_gemini_async"]["inputSchema"])
+	assert.Equal(t, tools["google_search"]["inputSchema"], tools["google_search_async"]["inputSchema"])
 
 	// All descriptions must tell the caller the answers come from Antigravity.
 	for name, tool := range tools {

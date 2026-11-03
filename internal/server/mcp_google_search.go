@@ -49,25 +49,41 @@ func (s *Server) addGoogleSearchTool(srv *mcpsdk.Server) {
 			"Use for current events, recent releases, documentation lookups, or anything that needs " +
 			"up-to-date information. Requests are served by the Antigravity (agy) CLI backend with Google " +
 			"Search grounding. Each call is one-shot, so phrase the query as a complete question.",
-		InputSchema: mcpObjectSchema(map[string]any{
-			"query": mcpStringSchema("The question or search request to answer from the web."),
-			"model": mcpStringSchema("Optional model ID to answer with. Defaults to " + googleSearchDefaultModel + "."),
-		}, "query"),
+		InputSchema: googleSearchInputSchema(),
 	}, s.mcpGoogleSearch)
 }
 
+func googleSearchInputSchema() map[string]any {
+	return mcpObjectSchema(map[string]any{
+		"query": mcpStringSchema("The question or search request to answer from the web."),
+		"model": mcpStringSchema("Optional model ID to answer with. Defaults to " + googleSearchDefaultModel + "."),
+	}, "query")
+}
+
+// googleSearchModel returns the requested model, or the default when none is named.
+func googleSearchModel(in googleSearchInput) string {
+	if model := strings.TrimSpace(in.Model); model != "" {
+		return model
+	}
+	return googleSearchDefaultModel
+}
+
+func validateGoogleSearchInput(in googleSearchInput) error {
+	if strings.TrimSpace(in.Query) == "" {
+		return fmt.Errorf("query is required")
+	}
+	if model := googleSearchModel(in); isRemovedModel(model) {
+		return fmt.Errorf("model has been removed from this proxy: %s", model)
+	}
+	return nil
+}
+
 func (s *Server) mcpGoogleSearch(ctx context.Context, in googleSearchInput) (googleSearchOutput, error) {
+	if err := validateGoogleSearchInput(in); err != nil {
+		return googleSearchOutput{}, err
+	}
 	query := strings.TrimSpace(in.Query)
-	if query == "" {
-		return googleSearchOutput{}, fmt.Errorf("query is required")
-	}
-	requestedModel := strings.TrimSpace(in.Model)
-	if requestedModel == "" {
-		requestedModel = googleSearchDefaultModel
-	}
-	if isRemovedModel(requestedModel) {
-		return googleSearchOutput{}, fmt.Errorf("model has been removed from this proxy: %s", requestedModel)
-	}
+	requestedModel := googleSearchModel(in)
 
 	// CloudCode rejects googleSearch alongside function declarations, so search runs as its own request.
 	request := antigravity.GeminiInternalRequest{

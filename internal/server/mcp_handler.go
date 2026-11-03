@@ -65,13 +65,7 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 			"credentials, so no separate Gemini API key is involved. Each call is one-shot: there is no " +
 			"conversation history, so put everything the model needs into the prompt. Call ask_gemini_models " +
 			"first if you are unsure which model IDs are available.",
-		InputSchema: mcpObjectSchema(map[string]any{
-			"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
-				"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
-			"prompt": mcpStringSchema("The full question or instruction to send to the model."),
-			"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +
-				"and return the sources and queries it used. The model decides whether to search. Defaults to false."),
-		}, "model", "prompt"),
+		InputSchema: askGeminiInputSchema(),
 	}, s.mcpAskGemini)
 
 	addMCPTool(srv, &mcpsdk.Tool{
@@ -84,7 +78,21 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 
 	s.addGoogleSearchTool(srv)
 
+	if asyncJobsEnabled {
+		s.addAsyncMCPTools(srv)
+	}
+
 	return srv
+}
+
+func askGeminiInputSchema() map[string]any {
+	return mcpObjectSchema(map[string]any{
+		"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
+			"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
+		"prompt": mcpStringSchema("The full question or instruction to send to the model."),
+		"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +
+			"and return the sources and queries it used. The model decides whether to search. Defaults to false."),
+	}, "model", "prompt")
 }
 
 // mcpHandler returns the stateless streamable HTTP handler for /mcp. The server
@@ -108,19 +116,26 @@ func (s *Server) mcpHandler() http.HandlerFunc {
 	return handler.ServeHTTP
 }
 
-func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGeminiOutput, error) {
-	prompt := strings.TrimSpace(in.Prompt)
-	if prompt == "" {
-		return askGeminiOutput{}, fmt.Errorf("prompt is required")
+func validateAskGeminiInput(in askGeminiInput) error {
+	if strings.TrimSpace(in.Prompt) == "" {
+		return fmt.Errorf("prompt is required")
 	}
+	model := strings.TrimSpace(in.Model)
+	if model == "" {
+		return fmt.Errorf("model is required; call ask_gemini_models to list available models")
+	}
+	if isRemovedModel(model) {
+		return fmt.Errorf("model has been removed from this proxy: %s", model)
+	}
+	return nil
+}
 
+func (s *Server) mcpAskGemini(ctx context.Context, in askGeminiInput) (askGeminiOutput, error) {
+	if err := validateAskGeminiInput(in); err != nil {
+		return askGeminiOutput{}, err
+	}
+	prompt := strings.TrimSpace(in.Prompt)
 	requestedModel := strings.TrimSpace(in.Model)
-	if requestedModel == "" {
-		return askGeminiOutput{}, fmt.Errorf("model is required; call ask_gemini_models to list available models")
-	}
-	if isRemovedModel(requestedModel) {
-		return askGeminiOutput{}, fmt.Errorf("model has been removed from this proxy: %s", requestedModel)
-	}
 
 	request := newAskGeminiRequest(prompt, in.SearchGrounding)
 	applyModelThinkingDefaults(requestedModel, &request)
