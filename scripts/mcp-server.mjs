@@ -1,5 +1,6 @@
 import "../build/wasm_exec.js";
 import { createRuntimeContext, loadModule } from "../build/runtime.mjs";
+import { mcpServerResetPath } from "./mcp-router.mjs";
 
 // MCPServer hosts one long-lived Go instance so in-memory MCP state, such as
 // async jobs, is shared by every /mcp request. Pending upstream fetches keep the
@@ -12,6 +13,10 @@ export class MCPServer {
   }
 
   async fetch(request) {
+    if (new URL(request.url).pathname === mcpServerResetPath) {
+      // Discards the object and its Go instance so the next request starts fresh.
+      this.ctx.abort("MCP server reset after a credentials change");
+    }
     this.binding ??= startGo(this.env, this.ctx, () => {
       this.binding = undefined;
     });
