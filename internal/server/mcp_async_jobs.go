@@ -304,7 +304,7 @@ func getAsyncResult(ctx context.Context, store *asyncJobStore, in getAsyncResult
 		Result:         job.result,
 	}
 	if !out.Done {
-		out.Message = "Still running. Call get_async_result again with the same job_id."
+		out.Message = "Still running. Call get_async_result again in ~30 seconds with the same job_id."
 	}
 	return out, nil
 }
