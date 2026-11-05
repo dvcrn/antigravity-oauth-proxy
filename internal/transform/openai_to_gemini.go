@@ -121,8 +121,8 @@ func convertMessagesToGeminiContents(messages []openai.Message) (geminiContents 
 			pendingToolParts = nil
 		}
 
-		if roleLower == "system" {
-			// Allow multiple system messages by concatenating their parts
+		if roleLower == "system" || roleLower == "developer" {
+			// Allow multiple system/developer messages by concatenating their parts
 			if systemInstruction == nil {
 				systemInstruction = &antigravity.SystemInstruction{
 					Role:  "system",

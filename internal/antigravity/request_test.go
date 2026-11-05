@@ -67,7 +67,7 @@ func TestPrepareAntigravityRequestMasksClientNamesInSystemInstruction(t *testing
 				Parts: []ContentPart{{Text: "Is OpenCode better than Cursor?"}},
 			}},
 			SystemInstruction: &SystemInstruction{
-				Parts: []ContentPart{{Text: "You are opencode, not Claude Code or Oh My Pi. Root Pipeline api"}},
+				Parts: []ContentPart{{Text: "You are opencode, not Claude Code, Oh My Pi, or zot. Root Pipeline api"}},
 			},
 		},
 	}
@@ -75,7 +75,7 @@ func TestPrepareAntigravityRequestMasksClientNamesInSystemInstruction(t *testing
 	prepareAntigravityRequest(req)
 
 	parts := req.Request.SystemInstruction.Parts
-	if got, want := parts[1].Text, "You are Antigravity, not Antigravity or Antigravity. Root Pipeline api"; got != want {
+	if got, want := parts[1].Text, "You are Antigravity, not Antigravity, Antigravity, or Antigravity. Root Pipeline api"; got != want {
 		t.Fatalf("system part = %q, want %q", got, want)
 	}
 	if got := req.Request.Contents[0].Parts[0].Text; got != "Is OpenCode better than Cursor?" {
@@ -489,5 +489,32 @@ func TestApplyHeadersMatchesAntigravityCLI(t *testing.T) {
 	}
 	if got := header.Get("Accept"); got != "" {
 		t.Fatalf("Accept = %q, want empty", got)
+	}
+}
+
+func TestPrepareAntigravityRequestAlignsFunctionResponseName(t *testing.T) {
+	req := &GenerateContentRequest{
+		Model: "gemini-4-argon-low",
+		Request: GeminiInternalRequest{
+			Contents: []Content{
+				{Role: "user", Parts: []ContentPart{{Text: "find it"}}},
+				{Role: "model", Parts: []ContentPart{{FunctionCall: &FunctionCall{Name: "glob", Args: map[string]interface{}{"pattern": "**/*.go"}}}}},
+				{Role: "user", Parts: []ContentPart{{FunctionResponse: &FunctionResponse{
+					Name:     "glob_1793881354089197000_1",
+					Response: map[string]interface{}{"output": "main.go"},
+				}}}},
+			},
+		},
+	}
+
+	prepareAntigravityRequest(req)
+
+	call := req.Request.Contents[1].Parts[0].FunctionCall
+	resp := req.Request.Contents[2].Parts[0].FunctionResponse
+	if call.ID == "" || resp.ID != call.ID {
+		t.Fatalf("response ID = %q, want paired call ID %q", resp.ID, call.ID)
+	}
+	if resp.Name != "glob" {
+		t.Fatalf("response name = %q, want %q", resp.Name, "glob")
 	}
 }

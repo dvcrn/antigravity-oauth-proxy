@@ -70,6 +70,12 @@ func prepareAntigravityRequest(req *GenerateContentRequest) {
 			Msg("Defaulted missing functionResponse IDs in request contents")
 	}
 
+	if renamed := alignFunctionResponseNames(req.Request.Contents); renamed > 0 {
+		logger.Get().Warn().
+			Int("renamed", renamed).
+			Msg("Aligned functionResponse names with their functionCall")
+	}
+
 	req.Request.SystemInstruction = buildAntigravitySystemInstruction(req.Request.SystemInstruction)
 	logPreparedThinkingConfig(req)
 }
@@ -279,7 +285,7 @@ func buildAntigravitySystemInstruction(existing *SystemInstruction) *SystemInstr
 // case, so "Roo" leaves "Root" alone and "Pi" leaves "Pipeline" alone. Longer
 // names come first so "GitHub Copilot", "Grok Build" and "Oh My Pi" are
 // replaced as one name.
-var clientNames = regexp.MustCompile(`(?i)\b(?:Claude Code|GitHub Copilot|Copilot|Open Code|OpenCode|Grok Build|Grok|Kilo Code|Qwen Code|Gemini CLI|Windsurf|Cascade|Aider|Codex|Kiro|Trae|Junie|Augment|Cody|Zed|Cline|Roo|Cursor|Microsoft|Oh[- ]My[- ]Pi|Pi)\b`)
+var clientNames = regexp.MustCompile(`(?i)\b(?:Claude Code|GitHub Copilot|Copilot|Open Code|OpenCode|Grok Build|Grok|Kilo Code|Qwen Code|Gemini CLI|Windsurf|Cascade|Aider|Codex|Kiro|Trae|Junie|Augment|Cody|Zed|Cline|Roo|Cursor|Microsoft|Oh[- ]My[- ]Pi|Pi|Zot)\b`)
 
 // replaceClientNames swaps other clients' names in client-provided system
 // instructions for Antigravity.
@@ -391,6 +397,34 @@ func ensureFunctionResponseIDs(contents []Content) int {
 	}
 
 	return missing
+}
+
+// alignFunctionResponseNames sets each functionResponse name to the name of the
+// functionCall with the same ID. CloudCode rejects mismatched names with 400
+// INVALID_ARGUMENT, and some clients send the call ID as the response name.
+func alignFunctionResponseNames(contents []Content) int {
+	nameByID := map[string]string{}
+	renamed := 0
+	for contentIndex := range contents {
+		for partIndex := range contents[contentIndex].Parts {
+			part := &contents[contentIndex].Parts[partIndex]
+			if part.FunctionCall != nil {
+				if id := strings.TrimSpace(part.FunctionCall.ID); id != "" && part.FunctionCall.Name != "" {
+					nameByID[id] = part.FunctionCall.Name
+				}
+				continue
+			}
+			if part.FunctionResponse == nil {
+				continue
+			}
+			name, ok := nameByID[strings.TrimSpace(part.FunctionResponse.ID)]
+			if ok && part.FunctionResponse.Name != name {
+				part.FunctionResponse.Name = name
+				renamed++
+			}
+		}
+	}
+	return renamed
 }
 
 func removeFirstMatch(values []string, target string) []string {

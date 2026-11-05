@@ -165,6 +165,31 @@ func TestToGeminiRequestReasoningEffort(t *testing.T) {
 			t.Errorf("expected image/jpeg, got %s", parts[0].InlineData.MimeType)
 		}
 	})
+
+	t.Run("extracts developer and system messages into systemInstruction", func(t *testing.T) {
+		req := &openai.ChatCompletionRequest{
+			Model: "gemini-3.8-flash",
+			Messages: []openai.Message{
+				{Role: "developer", Content: "You are zot"},
+				{Role: "system", Content: "System extra"},
+				{Role: "user", Content: "Hello"},
+			},
+		}
+
+		gemReq, err := ToGeminiRequest(req, "test-proj")
+		if err != nil {
+			t.Fatalf("ToGeminiRequest failed: %v", err)
+		}
+		if len(gemReq.Request.Contents) != 1 || gemReq.Request.Contents[0].Parts[0].Text != "Hello" {
+			t.Fatalf("unexpected contents: %+v", gemReq.Request.Contents)
+		}
+		if gemReq.Request.SystemInstruction == nil || len(gemReq.Request.SystemInstruction.Parts) != 2 {
+			t.Fatalf("expected 2 systemInstruction parts, got %+v", gemReq.Request.SystemInstruction)
+		}
+		if gemReq.Request.SystemInstruction.Parts[0].Text != "You are zot" || gemReq.Request.SystemInstruction.Parts[1].Text != "System extra" {
+			t.Fatalf("unexpected systemInstruction parts: %+v", gemReq.Request.SystemInstruction.Parts)
+		}
+	})
 }
 
 func TestConvertToGeminiSchema(t *testing.T) {
