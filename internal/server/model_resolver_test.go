@@ -199,6 +199,47 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-4-argon-high",
 		},
 		{
+			name:     "Gemini 4 Carbon bare defaults to medium",
+			model:    "gemini-4-carbon",
+			expected: "gemini-4-carbon-medium",
+		},
+		{
+			name:          "Gemini 4 Carbon low",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-carbon-low",
+		},
+		{
+			name:          "Gemini 4 Carbon minimal maps to low",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "MINIMAL",
+			expected:      "gemini-4-carbon-low",
+		},
+		{
+			name:          "Gemini 4 Carbon thinking off maps to low",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "NONE",
+			expected:      "gemini-4-carbon-low",
+		},
+		{
+			name:          "Gemini 4 Carbon medium",
+			model:         "gemini-4-carbon-preview",
+			thinkingLevel: "MEDIUM",
+			expected:      "gemini-4-carbon-medium",
+		},
+		{
+			name:          "Gemini 4 Carbon high",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-4-carbon-high",
+		},
+		{
+			name:          "Gemini 4 Carbon direct ID wins over level",
+			model:         "gemini-4-carbon-high",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-carbon-high",
+		},
+		{
 			name:          "Gemini 3.8 Flash default",
 			model:         "gemini-3.8-flash",
 			thinkingLevel: "",
@@ -286,11 +327,17 @@ func TestResolveModelForThinkingArgonBudgetZeroUsesLow(t *testing.T) {
 	if got := resolveModelForThinking("gemini-4-argon", req); got != modelGemini4ArgonLow {
 		t.Fatalf("resolveModelForThinking(gemini-4-argon, budget 0) = %q, want %q", got, modelGemini4ArgonLow)
 	}
+	if got := resolveModelForThinking("gemini-4-carbon", req); got != modelGemini4CarbonLow {
+		t.Fatalf("resolveModelForThinking(gemini-4-carbon, budget 0) = %q, want %q", got, modelGemini4CarbonLow)
+	}
 }
 
 func TestResolveModelForThinkingIgnoresNonGeminiArgon(t *testing.T) {
 	if got := resolveModelForThinking("acme-argon-7b", antigravity.GeminiInternalRequest{}); got != "acme-argon-7b" {
 		t.Fatalf("resolveModelForThinking(acme-argon-7b) = %q, want unchanged", got)
+	}
+	if got := resolveModelForThinking("acme-carbon-7b", antigravity.GeminiInternalRequest{}); got != "acme-carbon-7b" {
+		t.Fatalf("resolveModelForThinking(acme-carbon-7b) = %q, want unchanged", got)
 	}
 }
 

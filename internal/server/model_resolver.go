@@ -29,6 +29,9 @@ const (
 	modelGemini4ArgonLow      = "gemini-4-argon-low"
 	modelGemini4ArgonMedium   = "gemini-4-argon-medium"
 	modelGemini4ArgonHigh     = "gemini-4-argon-high"
+	modelGemini4CarbonLow     = "gemini-4-carbon-low"
+	modelGemini4CarbonMedium  = "gemini-4-carbon-medium"
+	modelGemini4CarbonHigh    = "gemini-4-carbon-high"
 	modelGemini31FlashLite    = "gemini-3.1-flash-lite"
 	modelGemini31FlashImage   = "gemini-3.1-flash-image"
 )
@@ -62,21 +65,10 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 		}
 
 	case isGemini4ArgonModel(modelLower):
-		// Upstream only serves the effort-suffixed IDs; the bare name 404s.
-		// Without an explicit level, use medium, which upstream reports as its
-		// default agent model. Thinking-off requests (a disabling level or
-		// thinkingBudget 0) use low, and the budget-0 config is passed through.
-		if thinkingBudgetDisabled(req) {
-			return modelGemini4ArgonLow
-		}
-		switch thinkingLevel {
-		case "high":
-			return modelGemini4ArgonHigh
-		case "minimal", "low", "none", "unspecified":
-			return modelGemini4ArgonLow
-		default:
-			return modelGemini4ArgonMedium
-		}
+		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4ArgonLow, modelGemini4ArgonMedium, modelGemini4ArgonHigh)
+
+	case isGemini4CarbonModel(modelLower):
+		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4CarbonLow, modelGemini4CarbonMedium, modelGemini4CarbonHigh)
 
 	case isGemini38FlashModel(modelLower):
 		switch thinkingLevel {
@@ -179,6 +171,9 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini4ArgonLow,
 		modelGemini4ArgonMedium,
 		modelGemini4ArgonHigh,
+		modelGemini4CarbonLow,
+		modelGemini4CarbonMedium,
+		modelGemini4CarbonHigh,
 		modelGemini31ProHighAgent:
 		return true
 	default:
@@ -205,8 +200,31 @@ func thinkingBudgetDisabled(req antigravity.GeminiInternalRequest) bool {
 	return budget != nil && *budget == 0
 }
 
+// resolveGemini4EffortModel maps a Gemini 4 model family to an effort-suffixed
+// ID. Upstream only serves the effort-suffixed IDs; the bare name 404s. Without
+// an explicit level, use medium, which upstream reports as its default agent
+// model. Thinking-off requests (a disabling level or thinkingBudget 0) use low,
+// and the budget-0 config is passed through.
+func resolveGemini4EffortModel(thinkingLevel string, req antigravity.GeminiInternalRequest, low, medium, high string) string {
+	if thinkingBudgetDisabled(req) {
+		return low
+	}
+	switch thinkingLevel {
+	case "high":
+		return high
+	case "minimal", "low", "none", "unspecified":
+		return low
+	default:
+		return medium
+	}
+}
+
 func isGemini4ArgonModel(modelLower string) bool {
 	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "argon")
+}
+
+func isGemini4CarbonModel(modelLower string) bool {
+	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "carbon")
 }
 
 func isGemini38FlashModel(modelLower string) bool {
