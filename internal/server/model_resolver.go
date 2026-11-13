@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"strings"
 
 	"github.com/dvcrn/antigravity-oauth-proxy/internal/antigravity"
@@ -64,10 +65,13 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4HydrogenLow, modelGemini4HydrogenMedium, modelGemini4HydrogenHigh)
 
 	case isGemini38FlashModel(modelLower):
+		if thinkingBudgetDisabled(req) {
+			return modelGemini38FlashTiered
+		}
 		switch thinkingLevel {
 		case "none", "unspecified":
 			return modelGemini38FlashTiered
-		case "high":
+		case "high", "extra", "xhigh":
 			return modelGemini38FlashHigh
 		case "medium":
 			return modelGemini38FlashMedium
@@ -146,13 +150,69 @@ func resolveGemini4EffortModel(thinkingLevel string, req antigravity.GeminiInter
 		return low
 	}
 	switch thinkingLevel {
-	case "high":
+	case "high", "extra", "xhigh":
 		return high
 	case "minimal", "low", "none", "unspecified":
 		return low
 	default:
 		return medium
 	}
+}
+
+func resolveModelWithCatalog(model string, req antigravity.GeminiInternalRequest, catalog map[string]antigravity.AvailableModel) string {
+	resolved := resolveModelForThinking(model, req)
+	if resolved != model || len(catalog) == 0 {
+		return resolved
+	}
+
+	modelLower := strings.ToLower(strings.TrimSpace(model))
+	if isKnownUpstreamModelID(modelLower) || modelFamily(modelLower) != "gemini" || !isSupportedModel(modelLower) {
+		return resolved
+	}
+	if _, exists := catalog[modelLower]; exists {
+		return modelLower
+	}
+
+	thinkingLevel := normalizedThinkingLevel(req)
+	var suffixes []string
+	switch {
+	case thinkingBudgetDisabled(req) || thinkingLevel == "none" || thinkingLevel == "off" || thinkingLevel == "unspecified" || thinkingLevel == "thinking_level_unspecified":
+		suffixes = []string{"-tiered", "-low", "-medium", "-high", "-xhigh"}
+	case thinkingLevel == "extra" || thinkingLevel == "xhigh":
+		suffixes = []string{"-xhigh", "-high", "-medium", "-low"}
+	case thinkingLevel == "high":
+		suffixes = []string{"-high", "-medium", "-low", "-xhigh"}
+	case thinkingLevel == "minimal" || thinkingLevel == "low":
+		suffixes = []string{"-low", "-medium", "-high", "-xhigh"}
+	default:
+		suffixes = []string{"-medium", "-high", "-low", "-xhigh"}
+	}
+
+	for _, suffix := range suffixes {
+		candidate := modelLower + suffix
+		if _, ok := catalog[candidate]; ok && isSupportedModel(candidate) {
+			return candidate
+		}
+	}
+	return resolved
+}
+
+func (s *Server) resolveRequestModel(ctx context.Context, model string, req antigravity.GeminiInternalRequest) string {
+	resolved := resolveModelForThinking(model, req)
+	if resolved != model {
+		return resolved
+	}
+
+	modelLower := strings.ToLower(strings.TrimSpace(model))
+	if isKnownUpstreamModelID(modelLower) || modelFamily(modelLower) != "gemini" || !isSupportedModel(modelLower) || s == nil || s.antigravityClient == nil {
+		return resolved
+	}
+
+	data, err := s.antigravityClient.FetchAvailableModels(ctx)
+	if err != nil || data == nil {
+		return resolved
+	}
+	return resolveModelWithCatalog(model, req, data.Models)
 }
 
 func isGeminiOrchestratorModel(modelLower string) bool {

@@ -36,6 +36,7 @@ func TestModelListingsExcludeRemovedModels(t *testing.T) {
 	}{
 		{"claude-opus-5-5", "claude-opus-5-5"},
 		{"claude-sonnet-5-5", "Claude Sonnet 5.5"},
+		{"gemini-3.8-flash", "Gemini 3.8 Flash"},
 		{"gemini-3.8-flash-low", "Gemini 3.8 Flash (Low)"},
 	}
 	if rec.Code != http.StatusOK || len(listing.Data) != len(wantModels) {
@@ -53,17 +54,32 @@ func TestModelListingsExcludeRemovedModels(t *testing.T) {
 			t.Errorf("removed model %q returned HTTP %d", model, rec.Code)
 		}
 	}
+	wantMCPModels := []struct {
+		id   string
+		name string
+	}{
+		{"claude-opus-5-5", "claude-opus-5-5"},
+		{"claude-sonnet-5-5", "Claude Sonnet 5.5"},
+		{"gemini-3.8-flash-low", "Gemini 3.8 Flash (Low)"},
+	}
 	mcpListing, err := srv.mcpAskGeminiModels(context.Background(), askGeminiModelsInput{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mcpListing.DefaultModel != "" || len(mcpListing.Models) != len(wantModels) {
+	if mcpListing.DefaultModel != "" || len(mcpListing.Models) != len(wantMCPModels) {
 		t.Fatalf("unexpected MCP model list: %+v", mcpListing)
 	}
 	for i, model := range mcpListing.Models {
-		if model.ID != wantModels[i].id || model.DisplayName != wantModels[i].name {
-			t.Errorf("MCP model %d = (%q, %q), want (%q, %q)", i, model.ID, model.DisplayName, wantModels[i].id, wantModels[i].name)
+		if model.ID != wantMCPModels[i].id || model.DisplayName != wantMCPModels[i].name {
+			t.Errorf("MCP model %d = (%q, %q), want (%q, %q)", i, model.ID, model.DisplayName, wantMCPModels[i].id, wantMCPModels[i].name)
 		}
+	}
+	cached, err := srv.antigravityClient.FetchAvailableModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, mutated := cached.Models["gemini-3.8-flash"]; mutated {
+		t.Fatalf("FetchAvailableModels cache was mutated with synthesized base model")
 	}
 }
 
@@ -205,20 +221,101 @@ func TestGeminiModelsRoutes(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &listing); err != nil {
 			t.Fatalf("%s: HTTP %d: %s", path, rec.Code, rec.Body.String())
 		}
-		if rec.Code != http.StatusOK || len(listing.Models) != 2 ||
+		if rec.Code != http.StatusOK || len(listing.Models) != 3 ||
 			listing.Models[0].Name != "models/claude-opus-5-5" || listing.Models[0].DisplayName != "claude-opus-5-5" ||
-			listing.Models[1].Name != "models/gemini-3.8-flash-low" || listing.Models[1].DisplayName != "Gemini 3.8 Flash (Low)" {
+			listing.Models[1].Name != "models/gemini-3.8-flash" || listing.Models[1].DisplayName != "Gemini 3.8 Flash" ||
+			listing.Models[2].Name != "models/gemini-3.8-flash-low" || listing.Models[2].DisplayName != "Gemini 3.8 Flash (Low)" {
 			t.Fatalf("%s: unexpected listing: HTTP %d: %s", path, rec.Code, rec.Body.String())
 		}
-		if gemini := listing.Models[1]; gemini.InputTokenLimit != 1048576 || gemini.OutputTokenLimit != 65536 || !gemini.Thinking {
-			t.Errorf("%s: upstream limits not reported: %+v", path, gemini)
+		for _, idx := range []int{1, 2} {
+			if gemini := listing.Models[idx]; gemini.InputTokenLimit != 1048576 || gemini.OutputTokenLimit != 65536 || !gemini.Thinking {
+				t.Errorf("%s: upstream limits not reported at index %d: %+v", path, idx, gemini)
+			}
 		}
 	}
 
+	if rec := get("/v1beta/models/gemini-3.8-flash"); rec.Code != http.StatusOK {
+		t.Errorf("synthesized models.get returned HTTP %d: %s", rec.Code, rec.Body.String())
+	}
 	if rec := get("/v1beta/models/gemini-3.8-flash-low"); rec.Code != http.StatusOK {
 		t.Errorf("models.get returned HTTP %d: %s", rec.Code, rec.Body.String())
 	}
 	if rec := get("/v1beta/models/claude-opus-4-6-thinking"); rec.Code != http.StatusNotFound {
 		t.Errorf("removed model returned HTTP %d", rec.Code)
+	}
+}
+
+func TestSynthesizeBareGeminiFamilyModels(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":{
+			"gemini-4-carbon-low":{"displayName":"Gemini 4 Carbon (Low)","maxTokens":1000,"maxOutputTokens":100,"supportsThinking":true},
+			"gemini-4-carbon-medium":{"displayName":"Gemini 4 Carbon (Medium)","maxTokens":1048576,"maxOutputTokens":65536,"supportsThinking":true},
+			"gemini-4-carbon-high":{"displayName":"Gemini 4 Carbon (High)","maxTokens":2000,"maxOutputTokens":200,"supportsThinking":true},
+			"gemini-4-hydrogen-xhigh":{"displayName":"Gemini 4 Hydrogen (XHigh)","maxTokens":1048576,"maxOutputTokens":65536,"supportsThinking":true},
+			"gemini-pro-orchestrator":{"displayName":"Orchestrator (Carbon)"},
+			"gemini-pro-orchestrator-argon":{"displayName":"Orchestrator (Argon)"},
+			"claude-opus-5-5-low":{"displayName":"Claude Opus 5.5 (Low)"},
+			"claude-opus-5-5-medium":{"displayName":"Claude Opus 5.5 (Medium)"},
+			"claude-opus-5-5-high":{"displayName":"Claude Opus 5.5 (High)"},
+			"gpt-oss-120b-medium":{"displayName":"GPT-OSS 120B (Medium)"}
+		}}`))
+	}))
+	defer upstream.Close()
+	previousEndpoints := antigravity.Endpoints
+	antigravity.Endpoints = []string{upstream.URL}
+	t.Cleanup(func() { antigravity.Endpoints = previousEndpoints })
+	srv := newMCPTestServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.modelsHandler(rec, httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/models failed: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+	var listing openAIModelsListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &listing); err != nil {
+		t.Fatal(err)
+	}
+
+	got := make(map[string]openAIModel, len(listing.Data))
+	for _, m := range listing.Data {
+		got[m.ID] = m
+	}
+
+	for _, id := range []string{"gemini-4-carbon", "gemini-4-hydrogen", "gemini-pro-orchestrator", "gemini-pro-orchestrator-argon"} {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("expected %q in model listing: %+v", id, listing.Data)
+		}
+	}
+	if got["gemini-4-carbon"].Name != "Gemini 4 Carbon" {
+		t.Errorf("gemini-4-carbon Name = %q, want %q", got["gemini-4-carbon"].Name, "Gemini 4 Carbon")
+	}
+	if got["gemini-4-hydrogen"].Name != "Gemini 4 Hydrogen" {
+		t.Errorf("gemini-4-hydrogen Name = %q, want %q", got["gemini-4-hydrogen"].Name, "Gemini 4 Hydrogen")
+	}
+	for _, unexpected := range []string{"claude-opus-5-5", "gpt-oss-120b"} {
+		if _, ok := got[unexpected]; ok {
+			t.Errorf("did not expect synthesized model %q", unexpected)
+		}
+	}
+
+	singleRec := httptest.NewRecorder()
+	srv.modelsHandler(singleRec, httptest.NewRequest(http.MethodGet, "/v1/models/gemini-4-carbon", nil))
+	if singleRec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/models/gemini-4-carbon returned HTTP %d: %s", singleRec.Code, singleRec.Body.String())
+	}
+
+	geminiRec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/models/gemini-4-carbon", nil)
+	srv.geminiModelsHandler(geminiRec, req)
+	if geminiRec.Code != http.StatusOK {
+		t.Fatalf("GET /v1beta/models/gemini-4-carbon returned HTTP %d: %s", geminiRec.Code, geminiRec.Body.String())
+	}
+	var gemModel geminiModel
+	if err := json.Unmarshal(geminiRec.Body.Bytes(), &gemModel); err != nil {
+		t.Fatal(err)
+	}
+	if gemModel.InputTokenLimit != 1048576 || gemModel.OutputTokenLimit != 65536 || !gemModel.Thinking {
+		t.Errorf("gemini-4-carbon should inherit -medium metadata, got %+v", gemModel)
 	}
 }

@@ -77,3 +77,77 @@ func TestNonStreamingAssistantMessageText(t *testing.T) {
 		t.Fatal("plain text response included tool calls")
 	}
 }
+
+func TestOpenAIChatCompletionsBareGeminiModelRouting(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		requestedModel  string
+		reasoningEffort string
+		wantUpstream    string
+	}{
+		{
+			name:            "known family routes by reasoning_effort",
+			requestedModel:  "gemini-4-carbon",
+			reasoningEffort: "high",
+			wantUpstream:    "gemini-4-carbon-high",
+		},
+		{
+			name:            "catalog family routes by reasoning_effort",
+			requestedModel:  "gemini-4-neon",
+			reasoningEffort: "low",
+			wantUpstream:    "gemini-4-neon-low",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var upstreamModels []string
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if strings.Contains(r.URL.Path, "fetchAvailableModels") {
+					_, _ = w.Write([]byte(`{"defaultAgentModelId":"gemini-3.8-flash-high","models":{
+						"gemini-3.8-flash-high":{},
+						"gemini-4-carbon-low":{},
+						"gemini-4-carbon-medium":{},
+						"gemini-4-carbon-high":{},
+						"gemini-4-neon-low":{},
+						"gemini-4-neon-medium":{}
+					}}`))
+					return
+				}
+				var reqBody struct {
+					Model string `json:"model"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+					t.Fatal(err)
+				}
+				upstreamModels = append(upstreamModels, reqBody.Model)
+				_, _ = w.Write([]byte(`{"response":{"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}]}}`))
+			}))
+			defer upstream.Close()
+			previousEndpoints := antigravity.Endpoints
+			antigravity.Endpoints = []string{upstream.URL}
+			t.Cleanup(func() { antigravity.Endpoints = previousEndpoints })
+			srv := newMCPTestServer(t)
+
+			payload := fmt.Sprintf(`{"model":%q,"reasoning_effort":%q,"messages":[{"role":"user","content":"hi"}]}`, tc.requestedModel, tc.reasoningEffort)
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(payload))
+			rec := httptest.NewRecorder()
+			srv.openAIChatCompletionsHandler(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("HTTP %d: %s", rec.Code, rec.Body.String())
+			}
+
+			var resp struct {
+				Model string `json:"model"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatal(err)
+			}
+			if resp.Model != tc.requestedModel {
+				t.Fatalf("response model = %q, want %q", resp.Model, tc.requestedModel)
+			}
+			if len(upstreamModels) != 1 || upstreamModels[0] != tc.wantUpstream {
+				t.Fatalf("upstream models = %v, want [%q]", upstreamModels, tc.wantUpstream)
+			}
+		})
+	}
+}

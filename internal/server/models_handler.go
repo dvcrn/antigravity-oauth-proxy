@@ -135,21 +135,90 @@ func (s *Server) geminiModelsHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(geminiModelsListResponse{Models: models})
 }
 
-// supportedModels returns the sorted upstream catalog IDs this proxy serves,
-// along with the full upstream catalog.
+// supportedModels returns sorted catalog IDs served by this proxy, including
+// synthesized suffixless Gemini family models backed by effort-suffixed entries.
 func (s *Server) supportedModels(ctx context.Context) ([]string, map[string]antigravity.AvailableModel, error) {
 	data, err := s.antigravityClient.FetchAvailableModels(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	modelIDs := make([]string, 0, len(data.Models))
-	for modelID := range data.Models {
+
+	// Copy the cached catalog map so synthesized bare models never mutate the client cache.
+	catalog := make(map[string]antigravity.AvailableModel, len(data.Models))
+	for modelID, info := range data.Models {
+		catalog[modelID] = info
+	}
+
+	bestRank := make(map[string]int)
+	for modelID, info := range data.Models {
+		if !isSupportedModel(modelID) || modelFamily(modelID) != "gemini" {
+			continue
+		}
+		baseID, rank, ok := splitGeminiEffortSuffix(modelID)
+		if !ok {
+			continue
+		}
+		if _, existsUpstream := data.Models[baseID]; existsUpstream {
+			continue
+		}
+		if rank > bestRank[baseID] {
+			bestRank[baseID] = rank
+			catalog[baseID] = syntheticGeminiBaseModel(info)
+		}
+	}
+
+	modelIDs := make([]string, 0, len(catalog))
+	for modelID := range catalog {
 		if isSupportedModel(modelID) {
 			modelIDs = append(modelIDs, modelID)
 		}
 	}
 	sort.Strings(modelIDs)
-	return modelIDs, data.Models, nil
+	return modelIDs, catalog, nil
+}
+
+func splitGeminiEffortSuffix(modelID string) (string, int, bool) {
+	trimmed := strings.TrimSpace(modelID)
+	lower := strings.ToLower(trimmed)
+	for _, entry := range []struct {
+		suffix string
+		rank   int
+	}{
+		{suffix: "-medium", rank: 4},
+		{suffix: "-high", rank: 3},
+		{suffix: "-low", rank: 2},
+		{suffix: "-xhigh", rank: 1},
+	} {
+		if strings.HasSuffix(lower, entry.suffix) {
+			baseID := trimmed[:len(trimmed)-len(entry.suffix)]
+			if baseID == "" || !isSupportedModel(baseID) || modelFamily(baseID) != "gemini" {
+				return "", 0, false
+			}
+			return baseID, entry.rank, true
+		}
+	}
+	return "", 0, false
+}
+
+func syntheticGeminiBaseModel(upstream antigravity.AvailableModel) antigravity.AvailableModel {
+	return antigravity.AvailableModel{
+		DisplayName:      stripEffortDisplaySuffix(upstream.DisplayName),
+		MaxTokens:        upstream.MaxTokens,
+		MaxOutputTokens:  upstream.MaxOutputTokens,
+		SupportsThinking: upstream.SupportsThinking,
+		QuotaInfo:        upstream.QuotaInfo,
+	}
+}
+
+func stripEffortDisplaySuffix(displayName string) string {
+	trimmed := strings.TrimSpace(displayName)
+	lower := strings.ToLower(trimmed)
+	for _, suffix := range []string{" (low)", " (medium)", " (high)", " (xhigh)", " (extra high)", " (extra)"} {
+		if strings.HasSuffix(lower, suffix) {
+			return strings.TrimSpace(trimmed[:len(trimmed)-len(suffix)])
+		}
+	}
+	return trimmed
 }
 
 // newGeminiModel builds a models.list entry. Clients such as Zed skip entries

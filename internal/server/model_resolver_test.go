@@ -91,6 +91,18 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-4-argon-high",
 		},
 		{
+			name:          "Gemini 4 Argon extra clamps to high",
+			model:         "gemini-4-argon",
+			thinkingLevel: "EXTRA",
+			expected:      "gemini-4-argon-high",
+		},
+		{
+			name:          "Gemini 4 Argon xhigh clamps to high",
+			model:         "gemini-4-argon",
+			thinkingLevel: "XHIGH",
+			expected:      "gemini-4-argon-high",
+		},
+		{
 			name:          "Gemini 4 Argon direct ID wins over level",
 			model:         "gemini-4-argon-high",
 			thinkingLevel: "LOW",
@@ -129,6 +141,18 @@ func TestResolveModelForThinking(t *testing.T) {
 			name:          "Gemini 4 Carbon high",
 			model:         "gemini-4-carbon",
 			thinkingLevel: "HIGH",
+			expected:      "gemini-4-carbon-high",
+		},
+		{
+			name:          "Gemini 4 Carbon extra clamps to high",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "EXTRA",
+			expected:      "gemini-4-carbon-high",
+		},
+		{
+			name:          "Gemini 4 Carbon xhigh clamps to high",
+			model:         "gemini-4-carbon",
+			thinkingLevel: "XHIGH",
 			expected:      "gemini-4-carbon-high",
 		},
 		{
@@ -257,6 +281,12 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-3.8-flash-high",
 		},
 		{
+			name:          "Gemini 3.8 Flash xhigh clamps to high",
+			model:         "gemini-3.8-flash",
+			thinkingLevel: "XHIGH",
+			expected:      "gemini-3.8-flash-high",
+		},
+		{
 			name:          "Gemini 3.8 Flash off maps to tiered",
 			model:         "gemini-3.8-flash",
 			thinkingLevel: "off",
@@ -319,6 +349,71 @@ func TestResolveModelForThinkingArgonBudgetZeroUsesLow(t *testing.T) {
 	}
 	if got := resolveModelForThinking("gemini-4-hydrogen", req); got != modelGemini4HydrogenLow {
 		t.Fatalf("resolveModelForThinking(gemini-4-hydrogen, budget 0) = %q, want %q", got, modelGemini4HydrogenLow)
+	}
+	if got := resolveModelForThinking("gemini-3.8-flash", req); got != modelGemini38FlashTiered {
+		t.Fatalf("resolveModelForThinking(gemini-3.8-flash, budget 0) = %q, want %q", got, modelGemini38FlashTiered)
+	}
+}
+
+func TestResolveModelWithCatalog(t *testing.T) {
+	catalog := map[string]antigravity.AvailableModel{
+		"gemini-4-neon-low":    {},
+		"gemini-4-neon-medium": {},
+		"gemini-4-neon-high":   {},
+		"gemini-4-quark-xhigh": {},
+		"claude-opus-5-5-high": {},
+	}
+
+	testCases := []struct {
+		name     string
+		model    string
+		req      antigravity.GeminiInternalRequest
+		expected string
+	}{
+		{
+			name:     "future gemini default resolves to medium",
+			model:    "gemini-4-neon",
+			req:      antigravity.GeminiInternalRequest{},
+			expected: "gemini-4-neon-medium",
+		},
+		{
+			name:     "future gemini low",
+			model:    "gemini-4-neon",
+			req:      requestWithThinkingLevel("LOW"),
+			expected: "gemini-4-neon-low",
+		},
+		{
+			name:     "future gemini high",
+			model:    "gemini-4-neon",
+			req:      requestWithThinkingLevel("HIGH"),
+			expected: "gemini-4-neon-high",
+		},
+		{
+			name:     "future gemini xhigh clamps to high when xhigh missing",
+			model:    "gemini-4-neon",
+			req:      requestWithThinkingLevel("XHIGH"),
+			expected: "gemini-4-neon-high",
+		},
+		{
+			name:     "future gemini xhigh selects xhigh when present",
+			model:    "gemini-4-quark",
+			req:      requestWithThinkingLevel("XHIGH"),
+			expected: "gemini-4-quark-xhigh",
+		},
+		{
+			name:     "claude is not resolved via catalog",
+			model:    "claude-opus-5-5",
+			req:      requestWithThinkingLevel("HIGH"),
+			expected: "claude-opus-5-5",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveModelWithCatalog(tc.model, tc.req, catalog); got != tc.expected {
+				t.Fatalf("resolveModelWithCatalog(%q) = %q, want %q", tc.model, got, tc.expected)
+			}
+		})
 	}
 }
 

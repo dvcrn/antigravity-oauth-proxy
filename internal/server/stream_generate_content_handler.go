@@ -90,7 +90,7 @@ func (s *Server) handleGenerateContent(w http.ResponseWriter, r *http.Request, m
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	resolvedModel := resolveModelForThinking(model, requestBody)
+	resolvedModel := s.resolveRequestModel(r.Context(), model, requestBody)
 	applyModelThinkingDefaults(model, &requestBody)
 	logGeminiThinkingConfig("incoming generateContent", model, resolvedModel, requestBody)
 
@@ -173,7 +173,7 @@ func (s *Server) handleStreamGenerateContent(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	resolvedModel := resolveModelForThinking(model, requestBody)
+	resolvedModel := s.resolveRequestModel(r.Context(), model, requestBody)
 	applyModelThinkingDefaults(model, &requestBody)
 	logGeminiThinkingConfig("incoming streamGenerateContent", model, resolvedModel, requestBody)
 

@@ -112,7 +112,7 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 		if errPre == nil && gemReqPre != nil {
 			preReq = gemReqPre.Request
 		}
-		resolvedModel := resolveModelForThinking(req.Model, preReq)
+		resolvedModel := resolveModelWithCatalog(req.Model, preReq, data.Models)
 		if !isKnownUpstreamModelID(resolvedModel) && !isKnownUpstreamModelID(req.Model) {
 			if _, exists := data.Models[req.Model]; !exists {
 				if _, existsResolved := data.Models[resolvedModel]; !existsResolved {
@@ -157,7 +157,7 @@ func (s *Server) chatCompletionRequestStream(w http.ResponseWriter, r *http.Requ
 	}
 
 	requestedModel := gemReq.Model
-	resolvedModel := resolveModelForThinking(requestedModel, gemReq.Request)
+	resolvedModel := s.resolveRequestModel(r.Context(), requestedModel, gemReq.Request)
 	applyModelThinkingDefaults(requestedModel, &gemReq.Request)
 	logGeminiThinkingConfig("incoming OpenAI stream", requestedModel, resolvedModel, gemReq.Request)
 	gemReq.Model = resolvedModel
@@ -451,7 +451,7 @@ func (s *Server) chatCompletionRequest(w http.ResponseWriter, r *http.Request, r
 	}
 
 	requestedModel := gemReq.Model
-	resolvedModel := resolveModelForThinking(requestedModel, gemReq.Request)
+	resolvedModel := s.resolveRequestModel(r.Context(), requestedModel, gemReq.Request)
 	applyModelThinkingDefaults(requestedModel, &gemReq.Request)
 	logGeminiThinkingConfig("incoming OpenAI non-stream", requestedModel, resolvedModel, gemReq.Request)
 	gemReq.Model = resolvedModel
