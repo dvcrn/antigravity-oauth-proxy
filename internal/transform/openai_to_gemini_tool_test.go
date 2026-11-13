@@ -10,7 +10,7 @@ import (
 )
 
 func TestToolHistorySerializesEmptyArguments(t *testing.T) {
-	for _, model := range []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gemini-3.1-pro-low"} {
+	for _, model := range []string{"claude-sonnet-5-5-high", "claude-opus-5-5-high", "gemini-4-argon-low"} {
 		for _, arguments := range []string{`{}`, `null`, ``, `invalid`, `{"limit":3}`} {
 			t.Run(model+"/"+arguments, func(t *testing.T) {
 				req := &openai.ChatCompletionRequest{

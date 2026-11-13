@@ -201,9 +201,6 @@ func (c *Client) LoadCodeAssist() (*LoadCodeAssistResponse, error) {
 
 func tieredFallbackModel(model string) string {
 	modelLower := strings.ToLower(model)
-	if strings.Contains(modelLower, "3.7-flash") && model != "gemini-3.7-flash-tiered" {
-		return "gemini-3.7-flash-tiered"
-	}
 	if strings.Contains(modelLower, "3.8-flash") && model != "gemini-3.8-flash-tiered" {
 		return "gemini-3.8-flash-tiered"
 	}

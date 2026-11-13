@@ -34,11 +34,7 @@ func prepareAntigravityRequest(req *GenerateContentRequest) {
 			Msg("Removed empty content parts from request")
 	}
 
-	if modelEncodesThinkingLevel(req.Model) {
-		clearRequestThinkingLevel(req)
-	} else {
-		applyGeminiThinkingPreset(req)
-	}
+	applyGeminiThinkingPreset(req)
 	ensureAntigravityThinkingDefaults(req)
 	clampMaxOutputTokens(req)
 
@@ -120,41 +116,6 @@ func logPreparedThinkingConfig(req *GenerateContentRequest) {
 		Msg("Prepared CloudCode thinking config")
 }
 
-func modelEncodesThinkingLevel(model string) bool {
-	switch strings.ToLower(strings.TrimSpace(model)) {
-	case "gemini-3.1-pro-low",
-		"gemini-3.1-pro-high",
-		"gemini-3.5-flash-extra-low",
-		"gemini-3.5-flash-low",
-		"gemini-3-flash-agent",
-		"gemini-3.6-flash-low",
-		"gemini-3.6-flash-medium",
-		"gemini-3.6-flash-high",
-		"gemini-pro-agent",
-		"gpt-oss-120b-medium":
-		return true
-	default:
-		return false
-	}
-}
-
-func clearRequestThinkingLevel(req *GenerateContentRequest) {
-	if req == nil || req.Request.GenerationConfig == nil || req.Request.GenerationConfig.ThinkingConfig == nil {
-		return
-	}
-
-	thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
-	if strings.TrimSpace(thinkingConfig.ThinkingLevel) == "" {
-		return
-	}
-
-	logger.Get().Info().
-		Str("model", req.Model).
-		Str("thinking_level", thinkingConfig.ThinkingLevel).
-		Msg("Cleared explicit thinking level because model ID encodes thinking effort")
-	thinkingConfig.ThinkingLevel = ""
-}
-
 func ensureAntigravityThinkingDefaults(req *GenerateContentRequest) {
 	if req == nil {
 		return
@@ -234,8 +195,6 @@ func maxAllowedOutputTokens(model string) int {
 		// CloudCode rejects Opus 4.6 output limits above 128000.
 		return 128000
 	case strings.Contains(modelLower, "flash-lite") || strings.Contains(modelLower, "flash-image"):
-		return 32768
-	case strings.Contains(modelLower, "3.1-pro-low"):
 		return 32768
 	case strings.Contains(modelLower, "2.5-"):
 		return 32768

@@ -13,19 +13,14 @@ func TestNormalizeModelName(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "gemini-3-pro-preview",
-			input:    "gemini-3-pro-preview",
-			expected: "gemini-3-pro-preview",
+			name:     "gemini-4-argon-high",
+			input:    "gemini-4-argon-high",
+			expected: "gemini-4-argon-high",
 		},
 		{
-			name:     "gemini-3-pro",
-			input:    "gemini-3-pro",
-			expected: "gemini-3-pro",
-		},
-		{
-			name:     "gemini-3-pro-low",
-			input:    "gemini-3-pro-low",
-			expected: "gemini-3-pro-low",
+			name:     "gemini-pro-orchestrator-argon",
+			input:    "gemini-pro-orchestrator-argon",
+			expected: "gemini-pro-orchestrator-argon",
 		},
 		{
 			name:     "gemini-3-flash",

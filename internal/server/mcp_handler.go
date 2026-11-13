@@ -85,7 +85,7 @@ func (s *Server) newMCPServer() *mcpsdk.Server {
 
 func askGeminiInputSchema() map[string]any {
 	return mcpObjectSchema(map[string]any{
-		"model": mcpStringSchema("Model ID to ask, e.g. gemini-3.1-pro-high. " +
+		"model": mcpStringSchema("Model ID to ask, e.g. gemini-4-argon-high. " +
 			"Use ask_gemini_models to list the IDs the Antigravity (agy) CLI backend currently offers."),
 		"prompt": mcpStringSchema("The full question or instruction to send to the model."),
 		"search_grounding": mcpBooleanSchema("Allow the model to ground its answer with Google Search " +

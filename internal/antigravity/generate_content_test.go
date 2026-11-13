@@ -72,40 +72,20 @@ func newTestClient(stub *stubHTTPClient) *Client {
 
 func TestGenerateContentReportsServedModel(t *testing.T) {
 	stub := &stubHTTPClient{
-		statusForModel: map[string]int{"gemini-3.1-pro-low": http.StatusOK},
+		statusForModel: map[string]int{"gemini-4-argon-low": http.StatusOK},
 	}
 
 	resp, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
-		Model:   "gemini-3.1-pro-low",
+		Model:   "gemini-4-argon-low",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, "gemini-3.1-pro-low", resp.Model)
-	assert.Equal(t, []string{"gemini-3.1-pro-low"}, stub.requestedModel)
+	assert.Equal(t, "gemini-4-argon-low", resp.Model)
+	assert.Equal(t, []string{"gemini-4-argon-low"}, stub.requestedModel)
 }
 
 func TestGenerateContentReportsTieredFallbackModel(t *testing.T) {
-	// A 3.7-flash model that 404s must fall back to the tiered variant, and the
-	// response has to name the model that actually served it.
-	stub := &stubHTTPClient{
-		statusForModel: map[string]int{
-			"gemini-3.7-flash-high":   http.StatusNotFound,
-			"gemini-3.7-flash-tiered": http.StatusOK,
-		},
-	}
-
-	resp, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
-		Model:   "gemini-3.7-flash-high",
-		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, "gemini-3.7-flash-tiered", resp.Model)
-	assert.Equal(t, []string{"gemini-3.7-flash-high", "gemini-3.7-flash-tiered"}, stub.requestedModel)
-}
-
-func TestGenerateContentReportsTieredFallbackModel38(t *testing.T) {
 	stub := &stubHTTPClient{
 		statusForModel: map[string]int{
 			"gemini-3.8-flash-high":   http.StatusNotFound,
@@ -125,16 +105,16 @@ func TestGenerateContentReportsTieredFallbackModel38(t *testing.T) {
 
 func TestGenerateContentDoesNotFallBackForOtherModels(t *testing.T) {
 	stub := &stubHTTPClient{
-		statusForModel: map[string]int{"gemini-3.1-pro-low": http.StatusNotFound},
+		statusForModel: map[string]int{"gemini-4-argon-low": http.StatusNotFound},
 	}
 
 	_, err := newTestClient(stub).GenerateContent(context.Background(), &GenerateContentRequest{
-		Model:   "gemini-3.1-pro-low",
+		Model:   "gemini-4-argon-low",
 		Request: GeminiInternalRequest{Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hi"}}}}},
 	})
 
 	require.Error(t, err)
-	assert.Equal(t, []string{"gemini-3.1-pro-low"}, stub.requestedModel)
+	assert.Equal(t, []string{"gemini-4-argon-low"}, stub.requestedModel)
 }
 
 func TestGenerateContentUsesCallerContext(t *testing.T) {

@@ -117,15 +117,13 @@ func (s *Server) openAIChatCompletionsHandler(w http.ResponseWriter, r *http.Req
 			if _, exists := data.Models[req.Model]; !exists {
 				if _, existsResolved := data.Models[resolvedModel]; !existsResolved {
 					fallbackModel := "gemini-3.8-flash-high"
-					if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
-						fallbackModel = "gemini-3.7-flash-high"
-					}
 					if data.DefaultAgentModelID != "" && !isRemovedModel(data.DefaultAgentModelID) {
 						if _, existsDefault := data.Models[data.DefaultAgentModelID]; existsDefault {
 							fallbackModel = data.DefaultAgentModelID
 						}
-					} else if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
-						fallbackModel = "gemini-3.5-flash-extra-low"
+					}
+					if _, existsFallback := data.Models[fallbackModel]; !existsFallback {
+						fallbackModel = "gemini-3-flash"
 					}
 					logger.Get().Warn().
 						Str("requested_model", req.Model).

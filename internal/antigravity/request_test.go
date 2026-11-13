@@ -11,7 +11,7 @@ import (
 func TestPrepareAntigravityRequestMatchesCLIShape(t *testing.T) {
 	req := &GenerateContentRequest{
 		Project: "test-project",
-		Model:   "gemini-pro-agent",
+		Model:   "gemini-pro-orchestrator",
 		Request: GeminiInternalRequest{
 			Contents: []Content{{
 				Role:  "user",
@@ -85,7 +85,7 @@ func TestPrepareAntigravityRequestMasksClientNamesInSystemInstruction(t *testing
 
 func TestPrepareAntigravityRequestDefaultsThinkingConfig(t *testing.T) {
 	req := &GenerateContentRequest{
-		Model: "gemini-3.1-pro-low",
+		Model: "gemini-2.5-pro",
 		Request: GeminiInternalRequest{
 			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
 		},
@@ -133,7 +133,7 @@ func TestPrepareAntigravityRequestClaudeThinkingOutputLimit(t *testing.T) {
 		{"custom budget above 32k", "claude-opus-4-6-thinking", 0, 20000, 40000, 20000},
 		{"custom budget near model limit", "claude-opus-4-6-thinking", 0, 70000, 128000, 70000},
 		{"budget above model limit", "claude-opus-4-6-thinking", 0, 140000, 128000, 127999},
-		{"gemini unchanged", "gemini-3.1-pro-low", 0, 0, 0, 10001},
+		{"gemini unchanged", "gemini-2.5-pro", 0, 0, 0, 10001},
 	}
 
 	for _, tc := range testCases {
@@ -160,46 +160,6 @@ func TestPrepareAntigravityRequestClaudeThinkingOutputLimit(t *testing.T) {
 	}
 }
 
-func TestPrepareAntigravityRequestClearsThinkingLevelForEncodedModel(t *testing.T) {
-	testModels := []string{
-		"gemini-3.1-pro-high",
-		"gemini-3.6-flash-high",
-		"gemini-3.6-flash-medium",
-		"gemini-3.6-flash-low",
-	}
-
-	for _, model := range testModels {
-		t.Run(model, func(t *testing.T) {
-			includeThoughts := false
-			req := &GenerateContentRequest{
-				Model: model,
-				Request: GeminiInternalRequest{
-					Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
-					GenerationConfig: &GeminiGenerationConfig{
-						ThinkingConfig: &ThinkingConfig{
-							IncludeThoughts: &includeThoughts,
-							ThinkingLevel:   "LOW",
-						},
-					},
-				},
-			}
-
-			prepareAntigravityRequest(req)
-
-			thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
-			if thinkingConfig.ThinkingLevel != "" {
-				t.Fatalf("ThinkingLevel = %q, want empty", thinkingConfig.ThinkingLevel)
-			}
-			if thinkingConfig.IncludeThoughts == nil || *thinkingConfig.IncludeThoughts {
-				t.Fatalf("IncludeThoughts = %v, want false", thinkingConfig.IncludeThoughts)
-			}
-			if thinkingConfig.ThinkingBudget == nil || *thinkingConfig.ThinkingBudget != 10001 {
-				t.Fatalf("ThinkingBudget = %v, want 10001", thinkingConfig.ThinkingBudget)
-			}
-		})
-	}
-}
-
 func TestPrepareAntigravityRequestStripsThinkingConfigForGptOss(t *testing.T) {
 	req := &GenerateContentRequest{
 		Model: "gpt-oss-120b-medium",
@@ -212,22 +172,6 @@ func TestPrepareAntigravityRequestStripsThinkingConfigForGptOss(t *testing.T) {
 
 	if req.Request.GenerationConfig != nil && req.Request.GenerationConfig.ThinkingConfig != nil {
 		t.Fatalf("ThinkingConfig should be nil for gpt-oss models")
-	}
-}
-
-func TestPrepareAntigravityRequestAppliesGemini37ThinkingPreset(t *testing.T) {
-	req := &GenerateContentRequest{
-		Model: "gemini-3.7-flash-high",
-		Request: GeminiInternalRequest{
-			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
-		},
-	}
-
-	prepareAntigravityRequest(req)
-
-	thinkingConfig := req.Request.GenerationConfig.ThinkingConfig
-	if thinkingConfig.ThinkingLevel != "high" {
-		t.Fatalf("ThinkingLevel = %q, want %q", thinkingConfig.ThinkingLevel, "high")
 	}
 }
 
@@ -318,7 +262,7 @@ func TestPrepareAntigravityRequestPreservesThinkingConfig(t *testing.T) {
 	includeThoughts := false
 	thinkingBudget := 123
 	req := &GenerateContentRequest{
-		Model: "gemini-3.1-pro-low",
+		Model: "gemini-2.5-pro",
 		Request: GeminiInternalRequest{
 			Contents: []Content{{Role: "user", Parts: []ContentPart{{Text: "hello"}}}},
 			GenerationConfig: &GeminiGenerationConfig{
@@ -431,10 +375,7 @@ func TestPrepareAntigravityRequestClampsMaxOutputTokens(t *testing.T) {
 		{"gemini-3.1-flash-lite", 65536, 32768},
 		{"gemini-3.1-flash-lite", 100000, 32768},
 		{"gemini-3.1-flash-lite", 4096, 4096},
-		{"gemini-3.1-pro-low", 65536, 32768},
 		{"gemini-2.5-flash", 65536, 32768},
-		{"gemini-3-flash-agent", 65536, 65536},
-		{"gemini-3.7-flash-high", 65536, 65536},
 		{"gemini-3.8-flash-high", 65536, 65536},
 		{"gemini-4-argon-high", 131072, 65536},
 		{"gemini-4-carbon-high", 131072, 65536},

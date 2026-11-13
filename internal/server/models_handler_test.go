@@ -85,11 +85,8 @@ func TestIsSupportedModel(t *testing.T) {
 		{"gemini-4-hydrogen-xhigh", true, "gemini"},
 		{"gemini-pro-orchestrator", true, "gemini"},
 		{"gemini-pro-orchestrator-argon", true, "gemini"},
+		{"gemini-flash-worker-agy", true, "gemini"},
 		{"gemini-3.8-flash-high", true, "gemini"},
-		{"gemini-3.7-flash-high", true, "gemini"},
-		{"gemini-3.6-flash-low", true, "gemini"},
-		{"gemini-3.1-pro-low", true, "gemini"},
-		{"gemini-pro-agent", true, "gemini"},
 		{"claude-sonnet-4-6", false, "claude"},
 		{"claude-sonnet-4-6-thinking", false, "claude"},
 		{"claude-opus-4-6", false, "claude"},
@@ -148,8 +145,8 @@ func TestNewOpenAIModelPickerFields(t *testing.T) {
 		id     string
 		vendor string
 	}{
-		{"claude-sonnet-5-5", "anthropic"},
-		{"gemini-3.1-pro-high", "google"},
+		{"claude-sonnet-5-5-high", "anthropic"},
+		{"gemini-4-argon-high", "google"},
 		{"openai-gpt-4o", "openai"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {

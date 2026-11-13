@@ -155,7 +155,7 @@ func TestMCPAskGeminiRejectsInvalidInput(t *testing.T) {
 	}{
 		{
 			name:        "blank prompt",
-			args:        map[string]interface{}{"model": "gemini-3.1-pro-high", "prompt": "   "},
+			args:        map[string]interface{}{"model": "gemini-4-argon-high", "prompt": "   "},
 			wantMessage: "prompt is required",
 		},
 		{

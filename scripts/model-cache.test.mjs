@@ -29,8 +29,8 @@ test("does not cache failed lookups or generation requests", async () => {
     calls++;
     return new Response(null, { status: 503 });
   });
-  assert.equal((await cached(request("/v1/models/gemini-3.1-pro-high"))).status, 503);
-  assert.equal((await cached(request("/v1/models/gemini-3.1-pro-high"))).status, 503);
+  assert.equal((await cached(request("/v1/models/gemini-4-argon-high"))).status, 503);
+  assert.equal((await cached(request("/v1/models/gemini-4-argon-high"))).status, 503);
   assert.equal((await cached(request("/v1/chat/completions"))).status, 503);
   assert.equal(calls, 3);
 });

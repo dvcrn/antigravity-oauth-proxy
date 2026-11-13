@@ -168,7 +168,7 @@ func TestMCPAsyncToolsRejectInvalidInputOnSubmit(t *testing.T) {
 		args        map[string]interface{}
 		wantMessage string
 	}{
-		{"ask_gemini_async", map[string]interface{}{"model": "gemini-3.1-pro-high", "prompt": "  "}, "prompt is required"},
+		{"ask_gemini_async", map[string]interface{}{"model": "gemini-4-argon-high", "prompt": "  "}, "prompt is required"},
 		{"ask_gemini_async", map[string]interface{}{"model": " ", "prompt": "hello"}, "model is required"},
 		{"ask_gemini_async", map[string]interface{}{"model": "claude-sonnet-4-6", "prompt": "hello"}, "model has been removed from this proxy"},
 		{"google_search_async", map[string]interface{}{"query": " "}, "query is required"},
