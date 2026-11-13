@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dvcrn/antigravity-oauth-proxy/internal/env"
 	"github.com/rs/zerolog"
 )
 
@@ -40,13 +41,13 @@ func colorize(s interface{}, c int) string {
 	return fmt.Sprintf("\x1b[%dm%v\x1b[0m", c, s)
 }
 
-// new creates a logger based on the ENV environment variable
+// newLogger creates a logger based on the ENV environment variable
 func newLogger() *zerolog.Logger {
-	env := os.Getenv("ENV")
+	appEnv, _ := env.Get("ENV")
 
 	// Set log level based on LOG_LEVEL env var, default to info
 	logLevel := zerolog.InfoLevel
-	if levelStr := os.Getenv("LOG_LEVEL"); levelStr != "" {
+	if levelStr, ok := env.Get("LOG_LEVEL"); ok {
 		if parsedLevel, err := zerolog.ParseLevel(strings.ToLower(levelStr)); err == nil {
 			logLevel = parsedLevel
 		} else {
@@ -56,7 +57,7 @@ func newLogger() *zerolog.Logger {
 
 	zerolog.SetGlobalLevel(logLevel)
 
-	if env == "development" || env == "dev" || env == "" {
+	if appEnv == "development" || appEnv == "dev" || appEnv == "" {
 		return newDevelopment()
 	}
 	return newProduction()
