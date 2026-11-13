@@ -240,6 +240,101 @@ func TestResolveModelForThinking(t *testing.T) {
 			expected:      "gemini-4-carbon-high",
 		},
 		{
+			name:     "Gemini 4 Hydrogen bare defaults to medium",
+			model:    "gemini-4-hydrogen",
+			expected: "gemini-4-hydrogen-medium",
+		},
+		{
+			name:          "Gemini 4 Hydrogen low",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-hydrogen-low",
+		},
+		{
+			name:          "Gemini 4 Hydrogen minimal maps to low",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "MINIMAL",
+			expected:      "gemini-4-hydrogen-low",
+		},
+		{
+			name:          "Gemini 4 Hydrogen thinking off maps to low",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "NONE",
+			expected:      "gemini-4-hydrogen-low",
+		},
+		{
+			name:          "Gemini 4 Hydrogen medium",
+			model:         "gemini-4-hydrogen-preview",
+			thinkingLevel: "MEDIUM",
+			expected:      "gemini-4-hydrogen-medium",
+		},
+		{
+			name:          "Gemini 4 Hydrogen high",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-4-hydrogen-high",
+		},
+		{
+			name:          "Gemini 4 Hydrogen extra maps to xhigh",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "EXTRA",
+			expected:      "gemini-4-hydrogen-xhigh",
+		},
+		{
+			name:          "Gemini 4 Hydrogen xhigh maps to xhigh",
+			model:         "gemini-4-hydrogen",
+			thinkingLevel: "XHIGH",
+			expected:      "gemini-4-hydrogen-xhigh",
+		},
+		{
+			name:          "Gemini 4 Hydrogen -extra suffix maps to xhigh",
+			model:         "gemini-4-hydrogen-extra",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-hydrogen-xhigh",
+		},
+		{
+			name:          "Gemini 4 Hydrogen direct ID wins over level",
+			model:         "gemini-4-hydrogen-xhigh",
+			thinkingLevel: "LOW",
+			expected:      "gemini-4-hydrogen-xhigh",
+		},
+		{
+			name:          "Gemini Pro Orchestrator passes through",
+			model:         "gemini-pro-orchestrator",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-pro-orchestrator",
+		},
+		{
+			name:          "Gemini Pro Orchestrator Argon passes through",
+			model:         "gemini-pro-orchestrator-argon",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-pro-orchestrator-argon",
+		},
+		{
+			name:          "Gemini Pro Orchestrator Carbon alias resolves to default orchestrator",
+			model:         "gemini-pro-orchestrator-carbon",
+			thinkingLevel: "HIGH",
+			expected:      "gemini-pro-orchestrator",
+		},
+		{
+			name:          "Orchestrator alias resolves to default orchestrator",
+			model:         "orchestrator",
+			thinkingLevel: "LOW",
+			expected:      "gemini-pro-orchestrator",
+		},
+		{
+			name:          "Orchestrator Carbon alias resolves to default orchestrator",
+			model:         "orchestrator-carbon",
+			thinkingLevel: "LOW",
+			expected:      "gemini-pro-orchestrator",
+		},
+		{
+			name:          "Orchestrator Argon alias resolves to argon orchestrator",
+			model:         "orchestrator-argon",
+			thinkingLevel: "LOW",
+			expected:      "gemini-pro-orchestrator-argon",
+		},
+		{
 			name:          "Gemini 3.8 Flash default",
 			model:         "gemini-3.8-flash",
 			thinkingLevel: "",
@@ -330,6 +425,9 @@ func TestResolveModelForThinkingArgonBudgetZeroUsesLow(t *testing.T) {
 	if got := resolveModelForThinking("gemini-4-carbon", req); got != modelGemini4CarbonLow {
 		t.Fatalf("resolveModelForThinking(gemini-4-carbon, budget 0) = %q, want %q", got, modelGemini4CarbonLow)
 	}
+	if got := resolveModelForThinking("gemini-4-hydrogen", req); got != modelGemini4HydrogenLow {
+		t.Fatalf("resolveModelForThinking(gemini-4-hydrogen, budget 0) = %q, want %q", got, modelGemini4HydrogenLow)
+	}
 }
 
 func TestResolveModelForThinkingIgnoresNonGeminiArgon(t *testing.T) {
@@ -338,6 +436,9 @@ func TestResolveModelForThinkingIgnoresNonGeminiArgon(t *testing.T) {
 	}
 	if got := resolveModelForThinking("acme-carbon-7b", antigravity.GeminiInternalRequest{}); got != "acme-carbon-7b" {
 		t.Fatalf("resolveModelForThinking(acme-carbon-7b) = %q, want unchanged", got)
+	}
+	if got := resolveModelForThinking("acme-hydrogen-7b", antigravity.GeminiInternalRequest{}); got != "acme-hydrogen-7b" {
+		t.Fatalf("resolveModelForThinking(acme-hydrogen-7b) = %q, want unchanged", got)
 	}
 }
 

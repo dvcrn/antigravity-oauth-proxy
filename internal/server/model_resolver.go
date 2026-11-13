@@ -7,33 +7,39 @@ import (
 )
 
 const (
-	modelGemini31ProLow       = "gemini-3.1-pro-low"
-	modelGemini31ProHigh      = "gemini-3.1-pro-high"
-	modelGemini31ProHighAgent = "gemini-pro-agent"
-	modelGemini3Flash         = "gemini-3-flash"
-	modelGemini35FlashLow     = "gemini-3.5-flash-extra-low"
-	modelGemini35FlashMedium  = "gemini-3.5-flash-low"
-	modelGemini35FlashHigh    = "gemini-3-flash-agent"
-	modelGemini36FlashLow     = "gemini-3.6-flash-low"
-	modelGemini36FlashMedium  = "gemini-3.6-flash-medium"
-	modelGemini36FlashHigh    = "gemini-3.6-flash-high"
-	modelGemini36FlashTiered  = "gemini-3.6-flash-tiered"
-	modelGemini37FlashLow     = "gemini-3.7-flash-low"
-	modelGemini37FlashMedium  = "gemini-3.7-flash-medium"
-	modelGemini37FlashHigh    = "gemini-3.7-flash-high"
-	modelGemini37FlashTiered  = "gemini-3.7-flash-tiered"
-	modelGemini38FlashLow     = "gemini-3.8-flash-low"
-	modelGemini38FlashMedium  = "gemini-3.8-flash-medium"
-	modelGemini38FlashHigh    = "gemini-3.8-flash-high"
-	modelGemini38FlashTiered  = "gemini-3.8-flash-tiered"
-	modelGemini4ArgonLow      = "gemini-4-argon-low"
-	modelGemini4ArgonMedium   = "gemini-4-argon-medium"
-	modelGemini4ArgonHigh     = "gemini-4-argon-high"
-	modelGemini4CarbonLow     = "gemini-4-carbon-low"
-	modelGemini4CarbonMedium  = "gemini-4-carbon-medium"
-	modelGemini4CarbonHigh    = "gemini-4-carbon-high"
-	modelGemini31FlashLite    = "gemini-3.1-flash-lite"
-	modelGemini31FlashImage   = "gemini-3.1-flash-image"
+	modelGemini31ProLow             = "gemini-3.1-pro-low"
+	modelGemini31ProHigh            = "gemini-3.1-pro-high"
+	modelGemini31ProHighAgent       = "gemini-pro-agent"
+	modelGemini3Flash               = "gemini-3-flash"
+	modelGemini35FlashLow           = "gemini-3.5-flash-extra-low"
+	modelGemini35FlashMedium        = "gemini-3.5-flash-low"
+	modelGemini35FlashHigh          = "gemini-3-flash-agent"
+	modelGemini36FlashLow           = "gemini-3.6-flash-low"
+	modelGemini36FlashMedium        = "gemini-3.6-flash-medium"
+	modelGemini36FlashHigh          = "gemini-3.6-flash-high"
+	modelGemini36FlashTiered        = "gemini-3.6-flash-tiered"
+	modelGemini37FlashLow           = "gemini-3.7-flash-low"
+	modelGemini37FlashMedium        = "gemini-3.7-flash-medium"
+	modelGemini37FlashHigh          = "gemini-3.7-flash-high"
+	modelGemini37FlashTiered        = "gemini-3.7-flash-tiered"
+	modelGemini38FlashLow           = "gemini-3.8-flash-low"
+	modelGemini38FlashMedium        = "gemini-3.8-flash-medium"
+	modelGemini38FlashHigh          = "gemini-3.8-flash-high"
+	modelGemini38FlashTiered        = "gemini-3.8-flash-tiered"
+	modelGemini4ArgonLow            = "gemini-4-argon-low"
+	modelGemini4ArgonMedium         = "gemini-4-argon-medium"
+	modelGemini4ArgonHigh           = "gemini-4-argon-high"
+	modelGemini4CarbonLow           = "gemini-4-carbon-low"
+	modelGemini4CarbonMedium        = "gemini-4-carbon-medium"
+	modelGemini4CarbonHigh          = "gemini-4-carbon-high"
+	modelGemini4HydrogenLow         = "gemini-4-hydrogen-low"
+	modelGemini4HydrogenMedium      = "gemini-4-hydrogen-medium"
+	modelGemini4HydrogenHigh        = "gemini-4-hydrogen-high"
+	modelGemini4HydrogenXHigh       = "gemini-4-hydrogen-xhigh"
+	modelGeminiProOrchestrator      = "gemini-pro-orchestrator"
+	modelGeminiProOrchestratorArgon = "gemini-pro-orchestrator-argon"
+	modelGemini31FlashLite          = "gemini-3.1-flash-lite"
+	modelGemini31FlashImage         = "gemini-3.1-flash-image"
 )
 
 func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest) string {
@@ -64,11 +70,23 @@ func resolveModelForThinking(model string, req antigravity.GeminiInternalRequest
 			return modelGemini31ProLow
 		}
 
+	case isGeminiOrchestratorModel(modelLower):
+		if strings.Contains(modelLower, "argon") {
+			return modelGeminiProOrchestratorArgon
+		}
+		return modelGeminiProOrchestrator
+
 	case isGemini4ArgonModel(modelLower):
 		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4ArgonLow, modelGemini4ArgonMedium, modelGemini4ArgonHigh)
 
 	case isGemini4CarbonModel(modelLower):
 		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4CarbonLow, modelGemini4CarbonMedium, modelGemini4CarbonHigh)
+
+	case isGemini4HydrogenModel(modelLower):
+		if !thinkingBudgetDisabled(req) && (strings.HasSuffix(modelLower, "-extra") || strings.HasSuffix(modelLower, "-extra-high") || thinkingLevel == "extra" || thinkingLevel == "xhigh") {
+			return modelGemini4HydrogenXHigh
+		}
+		return resolveGemini4EffortModel(thinkingLevel, req, modelGemini4HydrogenLow, modelGemini4HydrogenMedium, modelGemini4HydrogenHigh)
 
 	case isGemini38FlashModel(modelLower):
 		switch thinkingLevel {
@@ -174,6 +192,12 @@ func isKnownUpstreamModelID(modelLower string) bool {
 		modelGemini4CarbonLow,
 		modelGemini4CarbonMedium,
 		modelGemini4CarbonHigh,
+		modelGemini4HydrogenLow,
+		modelGemini4HydrogenMedium,
+		modelGemini4HydrogenHigh,
+		modelGemini4HydrogenXHigh,
+		modelGeminiProOrchestrator,
+		modelGeminiProOrchestratorArgon,
 		modelGemini31ProHighAgent:
 		return true
 	default:
@@ -219,12 +243,21 @@ func resolveGemini4EffortModel(thinkingLevel string, req antigravity.GeminiInter
 	}
 }
 
+func isGeminiOrchestratorModel(modelLower string) bool {
+	return strings.Contains(modelLower, "orchestrator") &&
+		(strings.Contains(modelLower, "gemini") || strings.HasPrefix(modelLower, "orchestrator"))
+}
+
 func isGemini4ArgonModel(modelLower string) bool {
 	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "argon")
 }
 
 func isGemini4CarbonModel(modelLower string) bool {
 	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "carbon")
+}
+
+func isGemini4HydrogenModel(modelLower string) bool {
+	return strings.Contains(modelLower, "gemini") && strings.Contains(modelLower, "hydrogen")
 }
 
 func isGemini38FlashModel(modelLower string) bool {

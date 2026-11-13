@@ -59,7 +59,7 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	modelIDs, _, err := s.supportedModels(r.Context())
+	modelIDs, catalog, err := s.supportedModels(r.Context())
 	if err != nil {
 		logger.Get().Error().Err(err).Msg("Failed to fetch available models")
 		writeAPIError(w, http.StatusInternalServerError, err.Error())
@@ -72,7 +72,7 @@ func (s *Server) modelsHandler(w http.ResponseWriter, r *http.Request) {
 
 	models := make([]openAIModel, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
-		models = append(models, newOpenAIModel(modelID, modelFamily(modelID), created))
+		models = append(models, newOpenAIModel(modelID, catalog[modelID], created))
 	}
 
 	// Handle request for a single model, e.g., /v1/models/gemini-2.5-pro
@@ -159,7 +159,7 @@ func newGeminiModel(modelID string, upstream antigravity.AvailableModel) geminiM
 		Name:                       "models/" + modelID,
 		BaseModelID:                modelID,
 		Version:                    modelID,
-		DisplayName:                modelID,
+		DisplayName:                modelDisplayName(modelID, upstream),
 		InputTokenLimit:            upstream.MaxTokens,
 		OutputTokenLimit:           upstream.MaxOutputTokens,
 		SupportedGenerationMethods: []string{"generateContent", "streamGenerateContent"},
@@ -177,11 +177,8 @@ func writeAPIError(w http.ResponseWriter, status int, message string) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// newOpenAIModel builds the listing entry for a single upstream model ID.
-//
-// Name echoes the model ID; see AvailableModel.DisplayName for why upstream's
-// label is not used.
-func newOpenAIModel(modelID, family string, created int64) openAIModel {
+func newOpenAIModel(modelID string, upstream antigravity.AvailableModel, created int64) openAIModel {
+	family := modelFamily(modelID)
 	ownedBy := "google"
 	if family == "claude" {
 		ownedBy = "anthropic"
@@ -195,12 +192,19 @@ func newOpenAIModel(modelID, family string, created int64) openAIModel {
 		Object:             "model",
 		Created:            created,
 		OwnedBy:            ownedBy,
-		Name:               modelID,
+		Name:               modelDisplayName(modelID, upstream),
 		Vendor:             vendor,
 		Version:            modelID,
 		ModelPickerEnabled: true,
 		Preview:            false,
 	}
+}
+
+func modelDisplayName(modelID string, upstream antigravity.AvailableModel) string {
+	if name := strings.TrimSpace(upstream.DisplayName); name != "" {
+		return name
+	}
+	return modelID
 }
 
 func isSupportedModel(modelID string) bool {

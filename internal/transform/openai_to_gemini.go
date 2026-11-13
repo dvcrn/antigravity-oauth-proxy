@@ -66,8 +66,10 @@ func ToGeminiRequest(openAIReq *openai.ChatCompletionRequest, projectID string) 
 				}
 			case "low", "medium", "high":
 				thinkingConfig.ThinkingLevel = strings.ToUpper(effortLower)
+			case "extra", "xhigh":
+				thinkingConfig.ThinkingLevel = "XHIGH"
 			default:
-				return nil, fmt.Errorf("unsupported reasoning_effort: %q (expected 'none', 'off', 'low', 'medium', or 'high')", openAIReq.ReasoningEffort)
+				return nil, fmt.Errorf("unsupported reasoning_effort: %q (expected 'none', 'off', 'low', 'medium', 'high', 'extra', or 'xhigh')", openAIReq.ReasoningEffort)
 			}
 		}
 

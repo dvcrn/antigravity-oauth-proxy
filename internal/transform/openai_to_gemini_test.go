@@ -77,6 +77,28 @@ func TestToGeminiRequestReasoningEffort(t *testing.T) {
 		}
 	})
 
+	t.Run("reasoning_effort extra and xhigh map to XHIGH", func(t *testing.T) {
+		for _, effort := range []string{"extra", "xhigh"} {
+			req := &openai.ChatCompletionRequest{
+				Model:           "gemini-4-hydrogen",
+				ReasoningEffort: effort,
+				Messages:        []openai.Message{{Role: "user", Content: "hi"}},
+			}
+
+			gemReq, err := ToGeminiRequest(req, "test-proj")
+			if err != nil {
+				t.Fatalf("ToGeminiRequest(%q) failed: %v", effort, err)
+			}
+			if gemReq.Request.GenerationConfig == nil || gemReq.Request.GenerationConfig.ThinkingConfig == nil {
+				t.Fatalf("expected ThinkingConfig to be non-nil for %q", effort)
+			}
+			tc := gemReq.Request.GenerationConfig.ThinkingConfig
+			if tc.ThinkingLevel != "XHIGH" {
+				t.Fatalf("ThinkingLevel for %q = %q, want XHIGH", effort, tc.ThinkingLevel)
+			}
+		}
+	})
+
 	t.Run("invalid reasoning_effort returns error", func(t *testing.T) {
 		req := &openai.ChatCompletionRequest{
 			Model:           "gemini-3.8-flash-tiered",

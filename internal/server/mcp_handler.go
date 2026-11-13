@@ -220,15 +220,13 @@ func (s *Server) mcpAskGeminiModels(ctx context.Context, _ askGeminiModelsInput)
 	}
 
 	models := make([]askGeminiModel, 0, len(data.Models))
-	for modelID := range data.Models {
+	for modelID, modelData := range data.Models {
 		if !isSupportedModel(modelID) {
 			continue
 		}
-		// DisplayName echoes the ID; see AvailableModel.DisplayName for why
-		// upstream's label is not used.
 		models = append(models, askGeminiModel{
 			ID:          modelID,
-			DisplayName: modelID,
+			DisplayName: modelDisplayName(modelID, modelData),
 		})
 	}
 

@@ -30,6 +30,8 @@ func applyGeminiThinkingPreset(req *GenerateContentRequest) {
 
 	level := ""
 	switch {
+	case strings.Contains(modelLower, "-xhigh"), strings.Contains(modelLower, "-extra"):
+		level = "xhigh"
 	case strings.Contains(modelLower, "-low"):
 		level = "low"
 	case strings.Contains(modelLower, "-medium"):

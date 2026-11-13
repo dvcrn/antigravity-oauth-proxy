@@ -15,7 +15,8 @@ func TestModelListingsExcludeRemovedModels(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"defaultAgentModelId":"claude-opus-4-6-thinking","models":{
 			"claude-sonnet-4-6":{},"claude-opus-4-6-thinking":{},"gpt-oss-120b-medium":{},
-			"claude-sonnet-5-5":{},"claude-opus-5-5":{},"gemini-3.8-flash-low":{}}}`))
+			"claude-sonnet-5-5":{"displayName":"Claude Sonnet 5.5"},"claude-opus-5-5":{},
+			"gemini-3.8-flash-low":{"displayName":"Gemini 3.8 Flash (Low)"}}}`))
 	}))
 	defer upstream.Close()
 	previousEndpoints := antigravity.Endpoints
@@ -29,13 +30,20 @@ func TestModelListingsExcludeRemovedModels(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &listing); err != nil {
 		t.Fatal(err)
 	}
-	wantIDs := []string{"claude-opus-5-5", "claude-sonnet-5-5", "gemini-3.8-flash-low"}
-	if rec.Code != http.StatusOK || len(listing.Data) != len(wantIDs) {
+	wantModels := []struct {
+		id   string
+		name string
+	}{
+		{"claude-opus-5-5", "claude-opus-5-5"},
+		{"claude-sonnet-5-5", "Claude Sonnet 5.5"},
+		{"gemini-3.8-flash-low", "Gemini 3.8 Flash (Low)"},
+	}
+	if rec.Code != http.StatusOK || len(listing.Data) != len(wantModels) {
 		t.Fatalf("unexpected model list: HTTP %d: %s", rec.Code, rec.Body.String())
 	}
 	for i, model := range listing.Data {
-		if model.ID != wantIDs[i] {
-			t.Errorf("model %d = %q, want %q", i, model.ID, wantIDs[i])
+		if model.ID != wantModels[i].id || model.Name != wantModels[i].name {
+			t.Errorf("model %d = (%q, %q), want (%q, %q)", i, model.ID, model.Name, wantModels[i].id, wantModels[i].name)
 		}
 	}
 	for _, model := range []string{"claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"} {
@@ -49,12 +57,12 @@ func TestModelListingsExcludeRemovedModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mcpListing.DefaultModel != "" || len(mcpListing.Models) != len(wantIDs) {
+	if mcpListing.DefaultModel != "" || len(mcpListing.Models) != len(wantModels) {
 		t.Fatalf("unexpected MCP model list: %+v", mcpListing)
 	}
 	for i, model := range mcpListing.Models {
-		if model.ID != wantIDs[i] {
-			t.Errorf("MCP model %d = %q, want %q", i, model.ID, wantIDs[i])
+		if model.ID != wantModels[i].id || model.DisplayName != wantModels[i].name {
+			t.Errorf("MCP model %d = (%q, %q), want (%q, %q)", i, model.ID, model.DisplayName, wantModels[i].id, wantModels[i].name)
 		}
 	}
 }
@@ -71,6 +79,12 @@ func TestIsSupportedModel(t *testing.T) {
 		{"gemini-4-carbon-low", true, "gemini"},
 		{"gemini-4-carbon-medium", true, "gemini"},
 		{"gemini-4-carbon-high", true, "gemini"},
+		{"gemini-4-hydrogen-low", true, "gemini"},
+		{"gemini-4-hydrogen-medium", true, "gemini"},
+		{"gemini-4-hydrogen-high", true, "gemini"},
+		{"gemini-4-hydrogen-xhigh", true, "gemini"},
+		{"gemini-pro-orchestrator", true, "gemini"},
+		{"gemini-pro-orchestrator-argon", true, "gemini"},
 		{"gemini-3.8-flash-high", true, "gemini"},
 		{"gemini-3.7-flash-high", true, "gemini"},
 		{"gemini-3.6-flash-low", true, "gemini"},
@@ -105,21 +119,25 @@ func TestIsSupportedModel(t *testing.T) {
 	}
 }
 
-// Upstream returns the same displayName for several distinct model IDs, so the
-// listing must report the ID as the name to keep entries unique and accurate.
-func TestNewOpenAIModelNameIsModelID(t *testing.T) {
-	// The four IDs upstream all labels "Gemini 3.1 Flash Lite".
-	collidingIDs := []string{
-		"gemini-2.5-flash",
-		"gemini-2.5-flash-lite",
-		"gemini-2.5-flash-thinking",
-		"gemini-3.1-flash-lite",
+func TestNewOpenAIModelName(t *testing.T) {
+	testCases := []struct {
+		name        string
+		modelID     string
+		displayName string
+		wantName    string
+	}{
+		{"upstream display name", "gemini-pro-orchestrator-argon", "Orchestrator (Argon)", "Orchestrator (Argon)"},
+		{"trimmed display name", "gemini-4-argon-high", "  Gemini 4 Argon (High)  ", "Gemini 4 Argon (High)"},
+		{"empty display name falls back to id", "gemini-3.8-flash-tiered", "", "gemini-3.8-flash-tiered"},
+		{"whitespace display name falls back to id", "gemini-3.8-flash-tiered", "   ", "gemini-3.8-flash-tiered"},
 	}
 
-	for _, id := range collidingIDs {
-		t.Run(id, func(t *testing.T) {
-			if got := newOpenAIModel(id, modelFamily(id), 0).Name; got != id {
-				t.Errorf("newOpenAIModel(%q).Name = %q, want %q", id, got, id)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := newOpenAIModel(tc.modelID, antigravity.AvailableModel{DisplayName: tc.displayName}, 0)
+			if got.ID != tc.modelID || got.Name != tc.wantName || got.Version != tc.modelID {
+				t.Errorf("newOpenAIModel(%q, %q) = {ID:%q Name:%q Version:%q}, want {ID:%q Name:%q Version:%q}",
+					tc.modelID, tc.displayName, got.ID, got.Name, got.Version, tc.modelID, tc.wantName, tc.modelID)
 			}
 		})
 	}
@@ -135,7 +153,7 @@ func TestNewOpenAIModelPickerFields(t *testing.T) {
 		{"openai-gpt-4o", "openai"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
-			model := newOpenAIModel(tc.id, modelFamily(tc.id), 0)
+			model := newOpenAIModel(tc.id, antigravity.AvailableModel{}, 0)
 			if !model.ModelPickerEnabled || model.Vendor != tc.vendor || model.Version != tc.id {
 				t.Errorf("model picker fields for %q: %+v", tc.id, model)
 			}
@@ -156,7 +174,7 @@ func TestNewOpenAIModelOwnedBy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.modelID, func(t *testing.T) {
-			got := newOpenAIModel(tc.modelID, modelFamily(tc.modelID), 0).OwnedBy
+			got := newOpenAIModel(tc.modelID, antigravity.AvailableModel{}, 0).OwnedBy
 			if got != tc.ownedBy {
 				t.Errorf("newOpenAIModel(%q).OwnedBy = %q, want %q", tc.modelID, got, tc.ownedBy)
 			}
@@ -168,7 +186,7 @@ func TestGeminiModelsRoutes(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"models":{"claude-opus-4-6-thinking":{},"claude-opus-5-5":{},
-			"gemini-3.8-flash-low":{"maxTokens":1048576,"maxOutputTokens":65536,"supportsThinking":true}}}`))
+			"gemini-3.8-flash-low":{"displayName":"Gemini 3.8 Flash (Low)","maxTokens":1048576,"maxOutputTokens":65536,"supportsThinking":true}}}`))
 	}))
 	defer upstream.Close()
 	previousEndpoints := antigravity.Endpoints
@@ -191,7 +209,8 @@ func TestGeminiModelsRoutes(t *testing.T) {
 			t.Fatalf("%s: HTTP %d: %s", path, rec.Code, rec.Body.String())
 		}
 		if rec.Code != http.StatusOK || len(listing.Models) != 2 ||
-			listing.Models[0].Name != "models/claude-opus-5-5" || listing.Models[1].Name != "models/gemini-3.8-flash-low" {
+			listing.Models[0].Name != "models/claude-opus-5-5" || listing.Models[0].DisplayName != "claude-opus-5-5" ||
+			listing.Models[1].Name != "models/gemini-3.8-flash-low" || listing.Models[1].DisplayName != "Gemini 3.8 Flash (Low)" {
 			t.Fatalf("%s: unexpected listing: HTTP %d: %s", path, rec.Code, rec.Body.String())
 		}
 		if gemini := listing.Models[1]; gemini.InputTokenLimit != 1048576 || gemini.OutputTokenLimit != 65536 || !gemini.Thinking {
